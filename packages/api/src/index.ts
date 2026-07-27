@@ -2,6 +2,8 @@ export { queryKeys } from "./keys";
 export type { CollectionKey, CollectionQueryKey } from "./keys";
 export { createLocalLedgerClient } from "./client";
 export type { CollectionClient, Entity, KeyValueStore, LedgerClient } from "./client";
+export { ApiError, createAuthApi, createRestLedgerClient } from "./restClient";
+export type { AuthApi, RestClientConfig } from "./restClient";
 export { LedgerClientProvider, useLedgerClient } from "./context";
 export {
   useBalances,

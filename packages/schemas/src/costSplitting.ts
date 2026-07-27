@@ -10,6 +10,7 @@ export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYY
 export const Member = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1, "Name is required"),
+  username: z.string().trim().min(1).optional(),
   active: z.boolean().default(true),
 });
 

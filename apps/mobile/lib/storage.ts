@@ -1,13 +1,29 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { createLocalLedgerClient } from "@courtpot/api";
-import type { LedgerClient } from "@courtpot/api";
+import { createAuthApi, createLocalLedgerClient, createRestLedgerClient } from "@courtpot/api";
+import type { AuthApi, LedgerClient, RestClientConfig } from "@courtpot/api";
+import { apiUrl } from "./config";
+import { tokenRef, unauthorizedHandler } from "./session";
 
-/** Local persistence for the five raw collections. */
-export const ledgerClient: LedgerClient = createLocalLedgerClient({
-  getItem: (key) => AsyncStorage.getItem(key),
-  setItem: (key, value) => AsyncStorage.setItem(key, value),
-});
+const restConfig: RestClientConfig | null =
+  apiUrl === null
+    ? null
+    : {
+        baseUrl: apiUrl,
+        getToken: tokenRef.get,
+        onUnauthorized: () => unauthorizedHandler.current?.(),
+      };
+
+/** Server mode (REST + Postgres) when configured, local AsyncStorage otherwise. */
+export const ledgerClient: LedgerClient =
+  restConfig === null
+    ? createLocalLedgerClient({
+        getItem: (key) => AsyncStorage.getItem(key),
+        setItem: (key, value) => AsyncStorage.setItem(key, value),
+      })
+    : createRestLedgerClient(restConfig);
+
+export const authApi: AuthApi | null = restConfig === null ? null : createAuthApi(restConfig);
 
 /** Persists the TanStack Query cache across app restarts. */
 export const queryPersister = createAsyncStoragePersister({ storage: AsyncStorage });

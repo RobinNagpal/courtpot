@@ -5,10 +5,12 @@ import { useGuestMutations, useLedgerInput, useMemberMutations } from "@courtpot
 import { countPersonReferences } from "@courtpot/domain";
 import type { LedgerInput } from "@courtpot/domain";
 import type { GuestT, MemberT } from "@courtpot/schemas";
-import { Member, Guest } from "@courtpot/schemas";
+import { Guest, Member, MemberCreate } from "@courtpot/schemas";
 import { Button, ErrorState, Input, ListItem, LoadingState, SectionTitle, confirmAsync } from "@courtpot/ui";
 import { Screen } from "../../components/Screen";
 import { FormError } from "../../components/FormError";
+import { useAuth } from "../../lib/auth";
+import { isRemote } from "../../lib/config";
 import { firstIssueMessage } from "../../lib/forms";
 import { newId } from "../../lib/id";
 
@@ -23,30 +25,32 @@ function nameTaken(name: string, rows: readonly NamedRow[], selfId?: string): bo
 }
 
 interface AddPersonRowProps {
-  placeholder: string;
-  onAdd: (name: string) => string | null;
+  label: string;
+  withUsername: boolean;
+  onAdd: (name: string, username: string) => string | null;
 }
 
-function AddPersonRow({ placeholder, onAdd }: AddPersonRowProps): ReactElement {
+function AddPersonRow({ label, withUsername, onAdd }: AddPersonRowProps): ReactElement {
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   return (
     <View className="gap-2">
-      <View className="flex-row items-end gap-2">
-        <View className="flex-1">
-          <Input label={placeholder} value={name} onChangeText={setName} placeholder="Name" />
-        </View>
-        <Button
-          label="Add"
-          onPress={() => {
-            const problem = onAdd(name);
-            setError(problem);
-            if (problem === null) {
-              setName("");
-            }
-          }}
-        />
-      </View>
+      <Input label={label} value={name} onChangeText={setName} placeholder="Name" />
+      {withUsername ? (
+        <Input label="Username (for login)" value={username} onChangeText={setUsername} placeholder="e.g. robinn" />
+      ) : null}
+      <Button
+        label="Add"
+        onPress={() => {
+          const problem = onAdd(name, username);
+          setError(problem);
+          if (problem === null) {
+            setName("");
+            setUsername("");
+          }
+        }}
+      />
       <FormError message={error} />
     </View>
   );
@@ -106,6 +110,7 @@ function PersonEditor({ name, references, extraAction, onRename, onDelete }: Per
 
 export default function PeopleScreen(): ReactElement {
   const { input, isPending, isError } = useLedgerInput();
+  const { member: signedInMember, logout } = useAuth();
   const memberMutations = useMemberMutations();
   const guestMutations = useGuestMutations();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -119,13 +124,27 @@ export default function PeopleScreen(): ReactElement {
   const ledger: LedgerInput = input;
   const activeCount = ledger.members.filter((m) => m.active).length;
 
-  const addMember = (name: string): string | null => {
+  const mutationProblem =
+    memberMutations.create.error?.message ??
+    memberMutations.update.error?.message ??
+    memberMutations.remove.error?.message ??
+    guestMutations.create.error?.message ??
+    guestMutations.remove.error?.message ??
+    null;
+
+  const addMember = (name: string, username: string): string | null => {
     if (nameTaken(name, ledger.members)) {
       return "A member with that name already exists.";
     }
-    const result = Member.safeParse({ id: newId(), name, active: true });
+    const candidate = { id: newId(), name, active: true };
+    const result = isRemote
+      ? MemberCreate.safeParse({ ...candidate, username })
+      : Member.safeParse(candidate);
     if (!result.success) {
       return firstIssueMessage(result.error);
+    }
+    if (ledger.members.some((m) => m.username !== undefined && m.username === result.data.username)) {
+      return "That username is already taken.";
     }
     memberMutations.create.mutate(result.data);
     return null;
@@ -185,16 +204,22 @@ export default function PeopleScreen(): ReactElement {
     memberMutations.update.mutate({ ...member, active: !member.active });
   };
 
+  const memberSubtitle = (member: MemberT): string => {
+    const status = member.active ? "Active" : "Inactive";
+    return member.username === undefined ? status : `${status} · @${member.username}`;
+  };
+
   return (
     <Screen>
       <SectionTitle label="Members" />
-      <AddPersonRow placeholder="New member" onAdd={addMember} />
+      <AddPersonRow label="New member" withUsername={isRemote} onAdd={addMember} />
+      <FormError message={mutationProblem} />
       <View>
         {ledger.members.map((member) => (
           <View key={member.id}>
             <ListItem
               title={member.name}
-              subtitle={member.active ? "Active" : "Inactive"}
+              subtitle={memberSubtitle(member)}
               onPress={() => setExpandedId((prev) => (prev === member.id ? null : member.id))}
             />
             {expandedId === member.id ? (
@@ -216,7 +241,7 @@ export default function PeopleScreen(): ReactElement {
       </View>
 
       <SectionTitle label="Guests" />
-      <AddPersonRow placeholder="New guest" onAdd={addGuest} />
+      <AddPersonRow label="New guest" withUsername={false} onAdd={addGuest} />
       {ledger.guests.length === 0 ? (
         <Text className="text-sm text-neutral-500 dark:text-neutral-400">No guests yet.</Text>
       ) : (
@@ -240,6 +265,15 @@ export default function PeopleScreen(): ReactElement {
           ))}
         </View>
       )}
+
+      {isRemote ? (
+        <View className="mt-4 gap-2">
+          <Text className="text-center text-sm text-neutral-500 dark:text-neutral-400">
+            {signedInMember === null ? "" : `Signed in as ${signedInMember.name}`}
+          </Text>
+          <Button label="Log out" variant="ghost" onPress={() => void logout()} />
+        </View>
+      ) : null}
     </Screen>
   );
 }

@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id       String        @id
+  name     String        @unique
+  username String        @unique
+  // 4-digit login PIN. Excluded globally via the Prisma client's `omit`
+  // config so it can never appear in an API response.
+  pin      String
+  active   Boolean       @default(true)
+  sessions AuthSession[]
+}
+
+model Guest {
+  id   String  @id
+  name String  @unique
+  note String?
+}
+
+model MemberBooking {
+  id        String   @id
+  date      String
+  title     String   @default("")
+  memberIds String[]
+  payers    Json
+}
+
+model GuestBooking {
+  id      String @id
+  date    String
+  title   String @default("")
+  guestId String
+  amount  Int
+  paidBy  String
+}
+
+model Transfer {
+  id     String  @id
+  date   String
+  fromId String
+  toId   String
+  amount Int
+  note   String?
+}
+
+model AuthSession {
+  token     String   @id
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
