@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "CourtPot",
+    "slug": "courtpot",
+    "version": "1.0.0",
+    "scheme": "courtpot",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router"]
+  }
+}

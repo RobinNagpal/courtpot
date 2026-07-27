@@ -1,0 +1,4 @@
+{
+  "extends": "@courtpot/config/tsconfig.base.json",
+  "include": ["src"]
+}

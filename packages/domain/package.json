@@ -1,0 +1,22 @@
+{
+  "name": "@courtpot/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@courtpot/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "@courtpot/config": "workspace:*",
+    "eslint": "^9.34.0",
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
