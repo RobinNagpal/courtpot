@@ -4,10 +4,10 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "dev": "expo start --port 7070",
+    "android": "expo start --android --port 7070",
+    "ios": "expo start --ios --port 7070",
+    "web": "expo start --web --port 7070",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app components lib"
   },

@@ -55,7 +55,7 @@ cd apps/server
 cp .env.example .env          # set DATABASE_URL (Neon/Supabase/Railway/local Postgres)
 pnpm db:migrate               # apply migrations (prisma migrate deploy)
 pnpm db:seed                  # create the five regulars, prints their PINs
-pnpm dev                      # API on http://localhost:3001
+pnpm dev                      # API on http://localhost:7071
 pnpm pins                     # operator-only: print every member's PIN from the DB
 pnpm user:test                # create a test member with random username + PIN, prints both
 ```
@@ -64,7 +64,9 @@ On its very first start against an empty database the server bootstraps a predef
 test user (username `test`) and prints its PIN to the console — so a fresh deployment
 is immediately loggable-into. Subsequent starts are a no-op.
 
-Then run the app against it: `EXPO_PUBLIC_API_URL=http://localhost:3001 pnpm --filter mobile dev`.
+Then run the app against it: `EXPO_PUBLIC_API_URL=http://localhost:7071 pnpm --filter mobile dev`
+(the app itself serves on http://localhost:7070). Ports only matter locally — `eas deploy`
+serves the static export on Expo's hosting, and server hosts inject their own `PORT`.
 Login is intentionally simple for now (plain PIN comparison, no rate limiting) — email-based
 auth can replace it later behind the same `AuthApi` interface.
 
