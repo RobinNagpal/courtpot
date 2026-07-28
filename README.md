@@ -57,7 +57,12 @@ pnpm db:migrate               # apply migrations (prisma migrate deploy)
 pnpm db:seed                  # create the five regulars, prints their PINs
 pnpm dev                      # API on http://localhost:3001
 pnpm pins                     # operator-only: print every member's PIN from the DB
+pnpm user:test                # create a test member with random username + PIN, prints both
 ```
+
+On its very first start against an empty database the server bootstraps a predefined
+test user (username `test`) and prints its PIN to the console — so a fresh deployment
+is immediately loggable-into. Subsequent starts are a no-op.
 
 Then run the app against it: `EXPO_PUBLIC_API_URL=http://localhost:3001 pnpm --filter mobile dev`.
 Login is intentionally simple for now (plain PIN comparison, no rate limiting) — email-based

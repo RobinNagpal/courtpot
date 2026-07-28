@@ -13,7 +13,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "pins": "tsx src/cli/pins.ts"
+    "pins": "tsx src/cli/pins.ts",
+    "user:test": "tsx src/cli/addTestUser.ts"
   },
   "dependencies": {
     "@courtpot/domain": "workspace:*",
