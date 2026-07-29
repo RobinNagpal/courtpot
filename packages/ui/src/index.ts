@@ -11,4 +11,6 @@ export type { InputProps } from "./components/Input";
 export { ListItem } from "./components/ListItem";
 export type { ListItemProps } from "./components/ListItem";
 export { SectionTitle } from "./components/SectionTitle";
+export { Avatar, AvatarRow } from "./components/Avatar";
+export { initialsFrom, tintFor } from "./initials";
 export { EmptyState, ErrorState, LoadingState } from "./components/States";

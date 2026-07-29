@@ -26,7 +26,7 @@ export default function TransfersScreen(): ReactElement {
 
 
   return (
-    <Screen>
+    <Screen nav>
       <Button label="+ Record transfer" onPress={() => router.push("/transfer/new")} />
       {rows.length === 0 ? (
         <EmptyState message="No transfers yet. Record one when someone pays someone back." />

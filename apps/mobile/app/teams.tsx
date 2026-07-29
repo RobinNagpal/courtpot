@@ -39,7 +39,7 @@ export default function TeamsScreen(): ReactElement {
   };
 
   return (
-    <Screen>
+    <Screen nav>
       <SectionTitle label="Your teams" />
       {teams.length === 0 ? (
         <EmptyState message="You are not on any team yet. Ask an admin to add you." />

@@ -27,7 +27,7 @@ export default function TeamHomeScreen(): ReactElement {
   const showTeams = isRemote && (teams.length > 1 || isAdmin);
 
   return (
-    <Screen>
+    <Screen nav>
       <View className={cardClass}>
         <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
           {activeTeam?.name ?? "CourtPot"}

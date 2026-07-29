@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMemberBookingMutations, useMemberBookings } from "@courtpot/api";
 import { memberBookingSplit } from "@courtpot/domain";
-import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
+import { AvatarRow, Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
@@ -35,7 +35,7 @@ export default function MemberBookingsScreen(): ReactElement {
   }
 
   return (
-    <Screen>
+    <Screen nav>
       <Button label="+ Member booking" onPress={() => router.push("/booking/member/new")} />
 
       <ChipGroup
@@ -59,6 +59,7 @@ export default function MemberBookingsScreen(): ReactElement {
                   names.get(booking.payers[0]?.memberId ?? "") ?? "?"
                 } fronted`}
                 onPress={() => router.push(`/booking/${booking.id}`)}
+                footer={<AvatarRow names={booking.memberIds.map((id) => names.get(id) ?? "?")} />}
                 right={
                   <RowMenu
                     accessibilityLabel="Booking actions"

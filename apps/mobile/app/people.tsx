@@ -179,7 +179,7 @@ export default function PeopleScreen(): ReactElement {
   };
 
   return (
-    <Screen>
+    <Screen nav>
       <SectionTitle label="Members" />
       <AddPersonRow label="New member" withUsername={isRemote} onAdd={addMember} />
       <FormError message={mutationProblem} />

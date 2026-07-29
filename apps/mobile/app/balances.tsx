@@ -43,7 +43,7 @@ export default function BalancesScreen(): ReactElement {
   const guestOwing = guests.filter((b) => b.owedCents > 0).reduce((sum, b) => sum + b.owedCents, 0);
 
   return (
-    <Screen>
+    <Screen nav>
       <View className={cardClass}>
         <Text className="text-sm text-neutral-600 dark:text-neutral-400">
           {`Outstanding ${formatCents(totalOutstanding)} · guests owe ${formatCents(guestOwing)}`}

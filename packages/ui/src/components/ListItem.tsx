@@ -5,10 +5,12 @@ export interface ListItemProps {
   title: string;
   subtitle?: string;
   right?: ReactNode;
+  /** Rendered under the subtitle, e.g. the avatars of everyone on a booking. */
+  footer?: ReactNode;
   onPress?: () => void;
 }
 
-export function ListItem({ title, subtitle, right, onPress }: ListItemProps): ReactElement {
+export function ListItem({ title, subtitle, right, footer, onPress }: ListItemProps): ReactElement {
   return (
     <Pressable
       accessibilityRole={onPress === undefined ? undefined : "button"}
@@ -21,6 +23,7 @@ export function ListItem({ title, subtitle, right, onPress }: ListItemProps): Re
         {subtitle === undefined ? null : (
           <Text className="text-sm text-neutral-500 dark:text-neutral-400">{subtitle}</Text>
         )}
+        {footer}
       </View>
       {right}
     </Pressable>

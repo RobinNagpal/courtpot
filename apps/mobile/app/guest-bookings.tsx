@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useGuestBookingMutations, useGuestBookings } from "@courtpot/api";
-import { Button, EmptyState, ErrorState, ListItem, LoadingState } from "@courtpot/ui";
+import { AvatarRow, Button, EmptyState, ErrorState, ListItem, LoadingState } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
@@ -34,7 +34,7 @@ export default function GuestBookingsScreen(): ReactElement {
   }
 
   return (
-    <Screen>
+    <Screen nav>
       <Button label="+ Guest booking" onPress={() => router.push("/booking/guest/new")} />
 
       <ChipGroup
@@ -54,6 +54,7 @@ export default function GuestBookingsScreen(): ReactElement {
               title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
               subtitle={guestBookingSubtitle(booking, names)}
               onPress={() => router.push(`/booking/${booking.id}`)}
+              footer={<AvatarRow names={booking.guests.map((charge) => names.get(charge.guestId) ?? "?")} />}
               right={
                 <RowMenu
                   accessibilityLabel="Guest booking actions"

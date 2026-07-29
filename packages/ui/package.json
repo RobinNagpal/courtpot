@@ -7,7 +7,8 @@
   "types": "src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run"
   },
   "dependencies": {
     "@courtpot/domain": "workspace:*"
@@ -24,6 +25,7 @@
     "nativewind": "^4.2.1",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^3.2.4"
   }
 }
