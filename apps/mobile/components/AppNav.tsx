@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Pressable, ScrollView, Text } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Role } from "@courtpot/schemas";
@@ -18,8 +18,8 @@ interface Destination {
 const DESTINATIONS: readonly Destination[] = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/balances", label: "Balances", icon: "wallet-outline" },
-  { href: "/member-bookings", label: "Members", icon: "calendar-outline" },
-  { href: "/guest-bookings", label: "Guests", icon: "person-add-outline" },
+  { href: "/member-bookings", label: "Member bookings", icon: "calendar-outline" },
+  { href: "/guest-bookings", label: "Guest bookings", icon: "person-add-outline" },
   { href: "/transfers", label: "Transfers", icon: "swap-horizontal-outline" },
   { href: "/people", label: "People", icon: "people-outline" },
 ];
@@ -28,8 +28,11 @@ const TEAMS: Destination = { href: "/teams", label: "Teams", icon: "swap-vertica
 
 /**
  * One bar on every section screen listing every destination, so any page is one
- * tap from any other — including the member/guest booking cross-links. Scrolls
- * horizontally rather than wrapping, so it never steals vertical space.
+ * tap from any other — including the member/guest booking cross-links.
+ *
+ * Wraps onto as many lines as it needs rather than scrolling sideways: a
+ * horizontal ScrollView left later chips off-screen with no visible affordance,
+ * so destinations were effectively unreachable.
  */
 export function AppNav(): ReactElement {
   const router = useRouter();
@@ -41,12 +44,7 @@ export function AppNav(): ReactElement {
   const destinations = isRemote && (teams.length > 1 || isAdmin) ? [...DESTINATIONS, TEAMS] : DESTINATIONS;
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerClassName="gap-2 pb-1"
-      className="-mx-1 shrink-0 grow-0 px-1"
-    >
+    <View className="flex-row flex-wrap gap-2">
       {destinations.map((destination) => {
         const current = pathname === destination.href;
         return (
@@ -76,6 +74,6 @@ export function AppNav(): ReactElement {
           </Pressable>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }

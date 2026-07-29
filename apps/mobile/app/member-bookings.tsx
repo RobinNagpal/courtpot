@@ -17,7 +17,8 @@ export default function MemberBookingsScreen(): ReactElement {
   const teamId = useActiveTeamId();
   const bookings = useMemberBookings();
   const { remove } = useMemberBookingMutations();
-  const people = usePersonOptions();
+  // A member booking only ever involves members, so guests would never match.
+  const people = usePersonOptions().filter((person) => person.kind === "member");
   const names = usePersonNames();
   const [personFilter, setPersonFilter] = useState<string | null>(null);
 

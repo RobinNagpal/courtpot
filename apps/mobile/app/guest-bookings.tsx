@@ -17,7 +17,8 @@ export default function GuestBookingsScreen(): ReactElement {
   const bookings = useGuestBookings();
   const { remove } = useGuestBookingMutations();
   const names = usePersonNames();
-  const people = usePersonOptions();
+  // Filter by the guests charged; members appear only as payers.
+  const people = usePersonOptions().filter((person) => person.kind === "guest");
   const [personFilter, setPersonFilter] = useState<string | null>(null);
 
   const rows = useMemo(() => {
