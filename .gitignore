@@ -156,3 +156,6 @@ web-build/
 *.tfstate.*
 *.tfvars
 crash.log
+.envrc
+*.iml
+.idea/
