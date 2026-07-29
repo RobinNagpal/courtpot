@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "prisma generate && tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "prisma generate && tsc --noEmit",
     "lint": "eslint src prisma test",
