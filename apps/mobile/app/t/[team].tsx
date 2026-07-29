@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -12,6 +12,7 @@ import {
   EmptyState,
   Input,
   ListItem,
+  LoadingState,
   SectionTitle,
   cardClass,
   formatCents,
@@ -20,8 +21,10 @@ import { Screen } from "../../components/Screen";
 import { FormError } from "../../components/FormError";
 import { NavChips } from "../../components/NavChips";
 import type { NavIconName } from "../../components/NavChips";
+import { useAuth } from "../../lib/auth";
 import { guestBookingSubtitle, guestLabel } from "../../lib/bookings";
-import { publicTeamApi } from "../../lib/storage";
+import { publicTeamApi, teamsApi } from "../../lib/storage";
+import { clearTeamPin, readTeamPin, saveTeamPin } from "../../lib/teamPin";
 
 type Section = "balances" | "members" | "guests" | "memberBookings" | "guestBookings" | "transfers";
 
@@ -41,6 +44,9 @@ const SECTIONS: readonly { key: Section; label: string; icon: NavIconName }[] = 
  * team in one response, so moving between them needs no refetch and never asks
  * for the PIN again. Nothing here edits — no row menus, no add buttons, no
  * team switcher.
+ *
+ * Three ways in, tried in order: a session (a member of the team never sees the
+ * PIN screen), a PIN remembered from last time, then asking.
  */
 export default function PublicTeamScreen(): ReactElement {
   // A slug like "sher-e-smash", or the raw team id.
@@ -50,23 +56,76 @@ export default function PublicTeamScreen(): ReactElement {
   const [section, setSection] = useState<Section>("balances");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Null until we know whether a session or a saved PIN can open the page.
+  const [checking, setChecking] = useState(true);
+  const { signedIn } = useAuth();
 
-  const unlock = async (): Promise<void> => {
-    if (publicTeamApi === null) {
-      setError("This build has no API configured, so team pages are unavailable.");
-      return;
-    }
+  const openWithPin = useCallback(
+    async (candidate: string, remember: boolean): Promise<boolean> => {
+      if (publicTeamApi === null) {
+        setError("This build has no API configured, so team pages are unavailable.");
+        return false;
+      }
+      try {
+        setPage(await publicTeamApi.unlock(handle, candidate));
+        setError(null);
+        if (remember) {
+          await saveTeamPin(handle, candidate);
+        }
+        return true;
+      } catch (problem) {
+        setPage(null);
+        setError(problem instanceof Error ? problem.message : "Could not open this team.");
+        return false;
+      }
+    },
+    [handle],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        // A member of this team gets in on their session alone.
+        if (signedIn && teamsApi !== null) {
+          const viaSession = await teamsApi.page(handle).catch(() => null);
+          if (viaSession !== null && !cancelled) {
+            setPage(viaSession);
+            return;
+          }
+        }
+        const saved = await readTeamPin(handle);
+        if (saved !== null && !cancelled && !(await openWithPin(saved, false))) {
+          // A rotated PIN makes the saved one useless: drop it and ask again,
+          // without showing the failure as if the visitor had mistyped.
+          await clearTeamPin();
+          setError(null);
+        }
+      } finally {
+        // Whatever happened, stop showing the spinner.
+        if (!cancelled) {
+          setChecking(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [handle, signedIn, openWithPin]);
+
+  const submit = async (): Promise<void> => {
     setBusy(true);
-    try {
-      setPage(await publicTeamApi.unlock(handle, pin));
-      setError(null);
-    } catch (problem) {
-      setPage(null);
-      setError(problem instanceof Error ? problem.message : "Could not open this team.");
-    } finally {
-      setBusy(false);
-    }
+    await openWithPin(pin, true);
+    setBusy(false);
   };
+
+  if (checking && page === null) {
+    return (
+      <Screen>
+        <LoadingState />
+      </Screen>
+    );
+  }
 
   if (page === null) {
     return (
@@ -88,7 +147,7 @@ export default function PublicTeamScreen(): ReactElement {
         <Button
           label={busy ? "Opening…" : "View team"}
           onPress={() => {
-            void unlock();
+            void submit();
           }}
         />
       </Screen>

@@ -8,6 +8,7 @@ import { Member } from "@courtpot/schemas";
 import type { LoginInputT, MemberT } from "@courtpot/schemas";
 import { authApi } from "./storage";
 import { tokenRef, unauthorizedHandler } from "./session";
+import { clearTeamPin } from "./teamPin";
 
 const STORAGE_KEY = "courtpot.auth";
 const StoredSession = z.object({ token: z.string().min(1), member: Member });
@@ -69,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactElemen
       }
       try {
         const result = await authApi.login(input);
+        // A signed-in member reaches team pages through their session.
+        await clearTeamPin();
         tokenRef.set(result.token);
         setMember(result.member);
         setSignedIn(true);

@@ -334,6 +334,35 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(page.transfers.length).toBeGreaterThan(0);
     });
 
+    it("opens the team page from a session, with no PIN, for a member", async () => {
+      // Alice was added to ledgerTeamId by the default-team test.
+      const res = await app.request(`/api/teams/${ledgerTeamId}/page`, authed());
+      expect(res.status).toBe(200);
+      const raw = await res.text();
+      expect(raw).not.toContain('"pin"');
+      const page = JSON.parse(raw) as { memberBookings: unknown[]; balances: unknown[] };
+      expect(Array.isArray(page.memberBookings)).toBe(true);
+      expect(Array.isArray(page.balances)).toBe(true);
+    });
+
+    it("refuses the session route to someone not on the team", async () => {
+      // pat belongs to no team at all.
+      const login = await app.request("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "pat", pin: "3333" }),
+      });
+      const { token: patToken } = (await login.json()) as { token: string };
+      const res = await app.request(`/api/teams/${ledgerTeamId}/page`, {
+        headers: { authorization: `Bearer ${patToken}` },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("needs a session for the page route at all", async () => {
+      expect((await app.request(`/api/teams/${ledgerTeamId}/page`)).status).toBe(401);
+    });
+
     it("gives the same 401 for an unknown team as for a wrong PIN", async () => {
       const res = await app.request(`/api/teams/${randomUUID()}/unlock`, {
         method: "POST",

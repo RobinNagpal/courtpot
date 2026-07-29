@@ -197,6 +197,27 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
     return c.json(team, 201);
   });
 
+  /**
+   * The same read-only page, reached with a session instead of the team PIN. A
+   * member of the team (or a platform Admin) never has to type the PIN.
+   */
+  router.get("/:handle/page", async (c) => {
+    const handle = c.req.param("handle");
+    const team = await db.team.findFirst({
+      where: { OR: [{ slug: handle.toLowerCase() }, { id: handle }] },
+    });
+    if (team === null) {
+      return c.json({ error: "Team not found" }, 404);
+    }
+    const membership = await db.teamMember.findUnique({
+      where: membershipKey(team.id, c.get("memberId")),
+    });
+    if (membership === null && !can(c.get("role"), Action.ManageTeams)) {
+      return c.json({ error: "You are not on that team" }, 403);
+    }
+    return c.json(TeamPage.parse(await loadTeamPage(db, team)));
+  });
+
   router.get("/:teamId/members", async (c) => {
     const rows = await db.teamMember.findMany({ where: { teamId: c.req.param("teamId") } });
     return c.json(TeamMembership.array().parse(rows));

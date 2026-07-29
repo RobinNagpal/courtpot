@@ -139,6 +139,8 @@ export interface TeamsApi {
   setDefault(teamId: string): Promise<MemberT>;
   edit(teamId: string, input: TeamEditT): Promise<TeamT>;
   create(input: TeamCreateT): Promise<TeamT>;
+  /** The read-only team page via the session, so no PIN is needed. */
+  page(handle: string): Promise<TeamPageT>;
 }
 
 export function createTeamsApi(config: RestClientConfig): TeamsApi {
@@ -154,6 +156,7 @@ export function createTeamsApi(config: RestClientConfig): TeamsApi {
       require(await request(config, "/api/auth/session/default-team", "PUT", Member, { teamId })),
     edit: async (teamId, input) => require(await request(config, `/api/teams/${teamId}`, "PUT", Team, input)),
     create: async (input) => require(await request(config, "/api/teams", "POST", Team, input)),
+    page: async (handle) => require(await request(config, `/api/teams/${handle}/page`, "GET", TeamPage)),
   };
 }
 
