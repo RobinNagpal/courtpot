@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useTransferMutations, useTransfers } from "@courtpot/api";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
-import { RowActions } from "../components/RowActions";
+import { RowMenu } from "../components/RowMenu";
 import { usePersonNames } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
@@ -35,19 +35,26 @@ export default function TransfersScreen(): ReactElement {
           {rows.map((transfer) => {
             const label = `${names.get(transfer.fromId) ?? "?"} → ${names.get(transfer.toId) ?? "?"}: ${formatCents(transfer.amount)}`;
             return (
-              <View key={transfer.id}>
-                <ListItem
-                  title={label}
-                  subtitle={`${transfer.date}${transfer.note === undefined ? "" : ` · ${transfer.note}`}`}
-                  onPress={() => router.push(`/transfer/${transfer.id}`)}
-                />
-                <RowActions
-                  onEdit={() => router.push(`/transfer/${transfer.id}`)}
-                  deleteSubject="this transfer"
-                  deleteDetail={`${label} on ${transfer.date}`}
-                  onDelete={() => remove.mutate(transfer.id)}
-                />
-              </View>
+              <ListItem
+                key={transfer.id}
+                title={label}
+                subtitle={`${transfer.date}${transfer.note === undefined ? "" : ` · ${transfer.note}`}`}
+                onPress={() => router.push(`/transfer/${transfer.id}`)}
+                right={
+                  <RowMenu
+                    accessibilityLabel="Transfer actions"
+                    actions={[
+                      { label: "Edit", onPress: () => router.push(`/transfer/${transfer.id}`) },
+                      {
+                        label: "Delete",
+                        destructive: true,
+                        confirm: { title: "Delete transfer?", message: `${label} on ${transfer.date}` },
+                        onPress: () => remove.mutate(transfer.id),
+                      },
+                    ]}
+                  />
+                }
+              />
             );
           })}
         </View>

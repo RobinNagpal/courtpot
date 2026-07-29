@@ -9,6 +9,7 @@ import { Guest, Member, MemberCreate } from "@courtpot/schemas";
 import { Button, ErrorState, Input, ListItem, LoadingState, SectionTitle, confirmAsync } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { FormError } from "../components/FormError";
+import { RowMenu } from "../components/RowMenu";
 import { useAuth } from "../lib/auth";
 import { isRemote } from "../lib/config";
 import { firstIssueMessage } from "../lib/forms";
@@ -57,54 +58,20 @@ function AddPersonRow({ label, withUsername, onAdd }: AddPersonRowProps): ReactE
   );
 }
 
-interface PersonEditorProps {
+interface RenameRowProps {
   name: string;
-  references: number;
-  extraAction?: { label: string; onPress: () => void };
   onRename: (name: string) => string | null;
-  onDelete: () => void;
 }
 
-function PersonEditor({ name, references, extraAction, onRename, onDelete }: PersonEditorProps): ReactElement {
+/** Inline rename, opened from the row's Edit action. */
+function RenameRow({ name, onRename }: RenameRowProps): ReactElement {
   const [draft, setDraft] = useState(name);
   const [error, setError] = useState<string | null>(null);
-
-  const handleDelete = async (): Promise<void> => {
-    if (references > 0) {
-      await confirmAsync(
-        "Cannot delete",
-        `${name} appears in ${references} booking/transfer row${references === 1 ? "" : "s"}. Delete those first.`,
-      );
-      return;
-    }
-    if (await confirmAsync("Delete?", `Remove ${name} permanently.`)) {
-      onDelete();
-    }
-  };
-
   return (
     <View className="gap-2 pb-3 pl-3">
       <Input label="Rename" value={draft} onChangeText={setDraft} />
       <FormError message={error} />
-      <View className="flex-row gap-2">
-        <View className="flex-1">
-          <Button label="Save" variant="ghost" onPress={() => setError(onRename(draft))} />
-        </View>
-        {extraAction === undefined ? null : (
-          <View className="flex-1">
-            <Button label={extraAction.label} variant="ghost" onPress={extraAction.onPress} />
-          </View>
-        )}
-        <View className="flex-1">
-          <Button
-            label="Delete"
-            variant="danger"
-            onPress={() => {
-              void handleDelete();
-            }}
-          />
-        </View>
-      </View>
+      <Button label="Save" variant="ghost" onPress={() => setError(onRename(draft))} />
     </View>
   );
 }
@@ -217,29 +184,48 @@ export default function PeopleScreen(): ReactElement {
       <AddPersonRow label="New member" withUsername={isRemote} onAdd={addMember} />
       <FormError message={mutationProblem} />
       <View>
-        {ledger.members.map((member) => (
-          <View key={member.id}>
-            <ListItem
-              title={member.name}
-              subtitle={memberSubtitle(member)}
-              onPress={() => setExpandedId((prev) => (prev === member.id ? null : member.id))}
-            />
-            {expandedId === member.id ? (
-              <PersonEditor
-                name={member.name}
-                references={countPersonReferences(member.id, ledger)}
-                extraAction={{
-                  label: member.active ? "Deactivate" : "Activate",
-                  onPress: () => {
-                    void toggleActive(member);
-                  },
-                }}
-                onRename={(name) => renameMember(member, name)}
-                onDelete={() => memberMutations.remove.mutate(member.id)}
+        {ledger.members.map((member) => {
+          const references = countPersonReferences(member.id, ledger);
+          return (
+            <View key={member.id}>
+              <ListItem
+                title={member.name}
+                subtitle={memberSubtitle(member)}
+                onPress={() => setExpandedId((prev) => (prev === member.id ? null : member.id))}
+                right={
+                  <RowMenu
+                    accessibilityLabel={`Actions for ${member.name}`}
+                    actions={[
+                      {
+                        label: "Edit",
+                        onPress: () => setExpandedId((prev) => (prev === member.id ? null : member.id)),
+                      },
+                      {
+                        label: member.active ? "Deactivate" : "Activate",
+                        onPress: () => {
+                          void toggleActive(member);
+                        },
+                      },
+                      {
+                        label: "Delete",
+                        destructive: true,
+                        disabledReason:
+                          references > 0
+                            ? `${member.name} appears in ${references} booking/transfer row${references === 1 ? "" : "s"}. Delete those first.`
+                            : undefined,
+                        confirm: { title: "Delete member?", message: `Remove ${member.name} permanently.` },
+                        onPress: () => memberMutations.remove.mutate(member.id),
+                      },
+                    ]}
+                  />
+                }
               />
-            ) : null}
-          </View>
-        ))}
+              {expandedId === member.id ? (
+                <RenameRow name={member.name} onRename={(name) => renameMember(member, name)} />
+              ) : null}
+            </View>
+          );
+        })}
       </View>
 
       <SectionTitle label="Guests" />
@@ -248,23 +234,42 @@ export default function PeopleScreen(): ReactElement {
         <Text className="text-sm text-neutral-500 dark:text-neutral-400">No guests yet.</Text>
       ) : (
         <View>
-          {ledger.guests.map((guest) => (
-            <View key={guest.id}>
-              <ListItem
-                title={guest.name}
-                subtitle="Guest"
-                onPress={() => setExpandedId((prev) => (prev === guest.id ? null : guest.id))}
-              />
-              {expandedId === guest.id ? (
-                <PersonEditor
-                  name={guest.name}
-                  references={countPersonReferences(guest.id, ledger)}
-                  onRename={(name) => renameGuest(guest, name)}
-                  onDelete={() => guestMutations.remove.mutate(guest.id)}
+          {ledger.guests.map((guest) => {
+            const references = countPersonReferences(guest.id, ledger);
+            return (
+              <View key={guest.id}>
+                <ListItem
+                  title={guest.name}
+                  subtitle="Guest"
+                  onPress={() => setExpandedId((prev) => (prev === guest.id ? null : guest.id))}
+                  right={
+                    <RowMenu
+                      accessibilityLabel={`Actions for ${guest.name}`}
+                      actions={[
+                        {
+                          label: "Edit",
+                          onPress: () => setExpandedId((prev) => (prev === guest.id ? null : guest.id)),
+                        },
+                        {
+                          label: "Delete",
+                          destructive: true,
+                          disabledReason:
+                            references > 0
+                              ? `${guest.name} appears in ${references} booking/transfer row${references === 1 ? "" : "s"}. Delete those first.`
+                              : undefined,
+                          confirm: { title: "Delete guest?", message: `Remove ${guest.name} permanently.` },
+                          onPress: () => guestMutations.remove.mutate(guest.id),
+                        },
+                      ]}
+                    />
+                  }
                 />
-              ) : null}
-            </View>
-          ))}
+                {expandedId === guest.id ? (
+                  <RenameRow name={guest.name} onRename={(name) => renameGuest(guest, name)} />
+                ) : null}
+              </View>
+            );
+          })}
         </View>
       )}
 

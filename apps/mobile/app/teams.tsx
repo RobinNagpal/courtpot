@@ -7,6 +7,7 @@ import { Role } from "@courtpot/schemas";
 import { Button, EmptyState, Input, ListItem, SectionTitle, confirmAsync } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { FormError } from "../components/FormError";
+import { RowMenu } from "../components/RowMenu";
 import { useAuth } from "../lib/auth";
 import { newId } from "../lib/id";
 import { useTeam } from "../lib/team";
@@ -56,29 +57,43 @@ export default function TeamsScreen(): ReactElement {
                     setActiveTeam(team.id);
                     router.replace("/");
                   }}
+                  right={
+                    <RowMenu
+                      accessibilityLabel={`Actions for ${team.name}`}
+                      actions={[
+                        ...(team.id === activeTeamId
+                          ? []
+                          : [
+                              {
+                                label: "Switch to this team",
+                                onPress: () => {
+                                  setActiveTeam(team.id);
+                                  router.replace("/");
+                                },
+                              },
+                            ]),
+                        ...(isDefault
+                          ? []
+                          : [
+                              {
+                                label: "Make default",
+                                onPress: () => {
+                                  void run(() => markDefault(team.id));
+                                },
+                              },
+                            ]),
+                        ...(canEdit
+                          ? [
+                              {
+                                label: "Edit",
+                                onPress: () => setEditingId((prev) => (prev === team.id ? null : team.id)),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  }
                 />
-                <View className="flex-row gap-2 pb-2 pl-3">
-                  {isDefault ? null : (
-                    <View className="flex-1">
-                      <Button
-                        label="Make default"
-                        variant="ghost"
-                        onPress={() => {
-                          void run(() => markDefault(team.id));
-                        }}
-                      />
-                    </View>
-                  )}
-                  {canEdit ? (
-                    <View className="flex-1">
-                      <Button
-                        label="Edit"
-                        variant="ghost"
-                        onPress={() => setEditingId((prev) => (prev === team.id ? null : team.id))}
-                      />
-                    </View>
-                  ) : null}
-                </View>
                 {editingId === team.id ? (
                   <TeamEditor
                     name={team.name}

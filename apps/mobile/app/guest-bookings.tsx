@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useGuestBookingMutations, useGuestBookings } from "@courtpot/api";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
-import { RowActions } from "../components/RowActions";
+import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
 import { guestBookingSubtitle, guestLabel, matchesGuestBooking } from "../lib/bookings";
 import { usePersonNames, usePersonOptions } from "../lib/people";
@@ -49,19 +49,29 @@ export default function GuestBookingsScreen(): ReactElement {
       ) : (
         <View>
           {rows.map((booking) => (
-            <View key={booking.id}>
-              <ListItem
-                title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
-                subtitle={guestBookingSubtitle(booking, names)}
-                onPress={() => router.push(`/booking/${booking.id}`)}
-              />
-              <RowActions
-                onEdit={() => router.push(`/booking/${booking.id}`)}
-                deleteSubject="this guest booking"
-                deleteDetail={guestBookingSubtitle(booking, names)}
-                onDelete={() => remove.mutate(booking.id)}
-              />
-            </View>
+            <ListItem
+              key={booking.id}
+              title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
+              subtitle={guestBookingSubtitle(booking, names)}
+              onPress={() => router.push(`/booking/${booking.id}`)}
+              right={
+                <RowMenu
+                  accessibilityLabel="Guest booking actions"
+                  actions={[
+                    { label: "Edit", onPress: () => router.push(`/booking/${booking.id}`) },
+                    {
+                      label: "Delete",
+                      destructive: true,
+                      confirm: {
+                        title: "Delete guest booking?",
+                        message: guestBookingSubtitle(booking, names),
+                      },
+                      onPress: () => remove.mutate(booking.id),
+                    },
+                  ]}
+                />
+              }
+            />
           ))}
         </View>
       )}
