@@ -21,11 +21,13 @@ courtpot.com (Route 53 → CloudFront, ACM cert)
 ## One-time setup
 
 Run Terraform with **admin** credentials (your own, not the deployer's) from
-`deployment/terraform`:
+`deployment/terraform`. State is kept in a private, versioned, SSE-encrypted
+S3 bucket; create it first, then init pointing at it:
 
 ```sh
+bash deployment/scripts/bootstrap-state-bucket.sh   # creates courtpot-tfstate-<account-id>
 cd deployment/terraform
-terraform init
+terraform init -backend-config="bucket=courtpot-tfstate-<account-id>"
 terraform apply
 ```
 
@@ -74,11 +76,11 @@ invalidates CloudFront, bundles `apps/server/src/lambda.ts` with esbuild
 
 ## Notes
 
-- **Terraform state** lives wherever you ran `apply` (it is gitignored). It
-  also contains the deployer's secret key when
-  `create_deployer_access_key = true` (the default; set it to `false` and
-  mint the key in the IAM console if you prefer). Keep the state file, or
-  enable the commented S3 backend in `versions.tf`.
+- **Terraform state** lives in the `courtpot-tfstate-<account-id>` bucket
+  (private, versioned, encrypted at rest). It contains the deployer's secret
+  key when `create_deployer_access_key = true` (the default) — set it to
+  `false` and mint the key in the IAM console if you'd rather keep it out of
+  state entirely.
 - **Costs**: everything here sits in the always-free or near-free tier at
   small scale — S3 pennies, CloudFront/Lambda free tiers, the Route 53 hosted
   zone's $0.50/month you already pay. The database is the only real decision.
