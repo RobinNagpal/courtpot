@@ -16,7 +16,8 @@ function parseArgs(argv: string[]): Map<string, string> {
   const args = new Map<string, string>();
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
-    if (key?.startsWith("--") !== true) {
+    // pnpm forwards the bare `--` separator into argv; ignore it.
+    if (key?.startsWith("--") !== true || key === "--") {
       continue;
     }
     const value = argv[i + 1];
