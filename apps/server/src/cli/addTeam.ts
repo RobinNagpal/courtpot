@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Pin, Role, RoleSchema } from "@courtpot/schemas";
+import { Pin, Role, RoleSchema, Slug } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
 import { createDb } from "../db";
 import { parseArgs } from "./args";
@@ -19,7 +19,7 @@ import { generatePin } from "../pin";
 function usage(message: string): never {
   console.error(`${message}
 
-Usage: pnpm team:add -- --name "Team name" [--pin 1234] [--all-members] [--role ${Object.values(Role).join("|")}]`);
+Usage: pnpm team:add -- --name "Team name" [--pin 1234] [--slug my-team] [--all-members] [--role ${Object.values(Role).join("|")}]`);
   process.exit(1);
 }
 
@@ -37,6 +37,12 @@ async function main(): Promise<void> {
     usage("--pin must be 4 digits");
   }
 
+  const rawSlug = args.get("slug");
+  const slug = rawSlug === undefined ? undefined : Slug.safeParse(rawSlug).data;
+  if (rawSlug !== undefined && slug === undefined) {
+    usage("--slug may contain only letters, digits and single hyphens");
+  }
+
   const rawRole = args.get("role");
   const role: RoleT | undefined = rawRole === undefined ? Role.TeamMember : RoleSchema.safeParse(rawRole).data;
   if (role === undefined) {
@@ -48,14 +54,19 @@ async function main(): Promise<void> {
 
   const team =
     existing === null
-      ? await db.team.create({ data: { id: randomUUID(), name, pin: pin ?? generatePin() } })
-      : pin === undefined
+      ? await db.team.create({ data: { id: randomUUID(), name, slug, pin: pin ?? generatePin() } })
+      : pin === undefined && slug === undefined
         ? existing
-        : await db.team.update({ where: { id: existing.id }, data: { pin } });
+        : await db.team.update({
+            where: { id: existing.id },
+            data: { ...(pin === undefined ? {} : { pin }), ...(slug === undefined ? {} : { slug }) },
+          });
 
   const shown = await db.team.findUniqueOrThrow({ where: { id: team.id }, omit: { pin: false } });
   console.log(
-    `${existing === null ? "Created" : "Updated"} team "${team.name}" — page PIN ${shown.pin}`,
+    `${existing === null ? "Created" : "Updated"} team "${team.name}" — page PIN ${shown.pin}${
+      shown.slug === null ? "" : `, at /t/${shown.slug}`
+    }`,
   );
 
   if (args.has("all-members")) {

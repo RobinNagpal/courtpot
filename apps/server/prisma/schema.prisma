@@ -59,6 +59,8 @@ model AuditLog {
 model Team {
   id             String          @id
   name           String          @unique
+  // Optional URL handle for the public team page: /t/<slug>.
+  slug           String?         @unique
   // 4-digit PIN that opens the team page. Omitted globally like a member's PIN,
   // so only the unlock check and the admin listing ever see it.
   pin            String

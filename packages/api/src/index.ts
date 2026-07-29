@@ -27,3 +27,5 @@ export { createLedgerQueryClient } from "./queryClient";
 
 export { createTeamsApi } from "./restClient";
 export type { TeamsApi } from "./restClient";
+export { createPublicTeamApi } from "./restClient";
+export type { PublicTeamApi } from "./restClient";

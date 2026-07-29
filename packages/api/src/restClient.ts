@@ -7,6 +7,7 @@ import {
   MemberBooking,
   MemberTeam,
   Team,
+  TeamPage,
   Transfer,
 } from "@courtpot/schemas";
 import type {
@@ -16,6 +17,7 @@ import type {
   MemberTeamT,
   TeamCreateT,
   TeamEditT,
+  TeamPageT,
   TeamT,
 } from "@courtpot/schemas";
 import type { CollectionClient, Entity, LedgerClient } from "./client";
@@ -152,5 +154,28 @@ export function createTeamsApi(config: RestClientConfig): TeamsApi {
       require(await request(config, "/api/auth/session/default-team", "PUT", Member, { teamId })),
     edit: async (teamId, input) => require(await request(config, `/api/teams/${teamId}`, "PUT", Team, input)),
     create: async (input) => require(await request(config, "/api/teams", "POST", Team, input)),
+  };
+}
+
+export interface PublicTeamApi {
+  /** Open a team page with its PIN. No member login involved. */
+  unlock(teamId: string, pin: string): Promise<TeamPageT>;
+}
+
+/**
+ * Unauthenticated client for the public team page. Deliberately separate from
+ * createRestLedgerClient: it sends no bearer token and reaches only the one
+ * endpoint that sits outside requireAuth.
+ */
+export function createPublicTeamApi(baseUrl: string): PublicTeamApi {
+  const config: RestClientConfig = { baseUrl, getToken: () => null };
+  return {
+    unlock: async (teamId, pin) => {
+      const page = await request(config, `/api/teams/${teamId}/unlock`, "POST", TeamPage, { pin });
+      if (page === null) {
+        throw new ApiError(500, "Empty response");
+      }
+      return page;
+    },
   };
 }

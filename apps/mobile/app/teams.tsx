@@ -52,7 +52,7 @@ export default function TeamsScreen(): ReactElement {
               <View key={team.id}>
                 <ListItem
                   title={`${team.name}${team.id === activeTeamId ? " · current" : ""}`}
-                  subtitle={`${team.role}${isDefault ? " · opens at login" : ""}`}
+                  subtitle={`${team.role}${isDefault ? " · opens at login" : ""}${team.slug === null ? "" : ` · /t/${team.slug}`}`}
                   onPress={() => {
                     setActiveTeam(team.id);
                     router.replace("/");
@@ -97,13 +97,18 @@ export default function TeamsScreen(): ReactElement {
                 {editingId === team.id ? (
                   <TeamEditor
                     name={team.name}
-                    onSave={(name, pin) =>
+                    slug={team.slug}
+                    onSave={(name, pin, slug) =>
                       run(() => {
                         const api = teamsApi;
                         if (api === null) {
                           throw new Error("Teams can only be edited in server mode.");
                         }
-                        return api.edit(team.id, pin === "" ? { name } : { name, pin });
+                        return api.edit(team.id, {
+                          name,
+                          ...(pin === "" ? {} : { pin }),
+                          ...(slug === "" ? {} : { slug }),
+                        });
                       })
                     }
                   />
@@ -123,7 +128,7 @@ export default function TeamsScreen(): ReactElement {
             <TeamEditor
               name=""
               saveLabel="Create team"
-              onSave={async (name, pin) => {
+              onSave={async (name, pin, slug) => {
                 const api = teamsApi;
                 if (api === null) {
                   setError("Teams can only be created in server mode.");
@@ -132,7 +137,14 @@ export default function TeamsScreen(): ReactElement {
                 if (!(await confirmAsync("Create team?", `Add "${name}". You can add members to it afterwards.`))) {
                   return;
                 }
-                await run(() => api.create({ id: newId(), name, ...(pin === "" ? {} : { pin }) }));
+                await run(() =>
+                  api.create({
+                    id: newId(),
+                    name,
+                    slug: slug === "" ? null : slug,
+                    ...(pin === "" ? {} : { pin }),
+                  }),
+                );
               }}
             />
           ) : (
@@ -150,16 +162,25 @@ export default function TeamsScreen(): ReactElement {
 
 interface TeamEditorProps {
   name: string;
+  slug?: string | null;
   saveLabel?: string;
-  onSave: (name: string, pin: string) => Promise<void> | void;
+  onSave: (name: string, pin: string, slug: string) => Promise<void> | void;
 }
 
-function TeamEditor({ name, saveLabel = "Save", onSave }: TeamEditorProps): ReactElement {
+function TeamEditor({ name, slug, saveLabel = "Save", onSave }: TeamEditorProps): ReactElement {
   const [draftName, setDraftName] = useState(name);
   const [pin, setPin] = useState("");
+  const [draftSlug, setDraftSlug] = useState(slug ?? "");
   return (
     <View className="gap-2 pb-3 pl-3">
       <Input label="Team name" value={draftName} onChangeText={setDraftName} />
+      <Input
+        label="Page address (letters, digits, hyphens)"
+        value={draftSlug}
+        onChangeText={setDraftSlug}
+        placeholder="e.g. sher-e-smash"
+        autoCapitalize="none"
+      />
       <Input
         label="Team PIN (leave blank to keep)"
         value={pin}
@@ -171,7 +192,7 @@ function TeamEditor({ name, saveLabel = "Save", onSave }: TeamEditorProps): Reac
         label={saveLabel}
         variant="ghost"
         onPress={() => {
-          void onSave(draftName.trim(), pin.trim());
+          void onSave(draftName.trim(), pin.trim(), draftSlug.trim());
         }}
       />
     </View>

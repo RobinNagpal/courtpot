@@ -8,9 +8,18 @@ export interface InputProps {
   onChangeText: (text: string) => void;
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
+  /** "none" for handles and usernames, where a capital is never wanted. */
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 }
 
-export function Input({ label, value, onChangeText, placeholder, keyboardType }: InputProps): ReactElement {
+export function Input({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+}: InputProps): ReactElement {
   return (
     <View className="gap-1">
       <Text className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{label}</Text>
@@ -20,6 +29,7 @@ export function Input({ label, value, onChangeText, placeholder, keyboardType }:
         onChangeText={onChangeText}
         placeholder={placeholder}
         keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
         placeholderTextColor="#9ca3af"
         className="rounded-card border border-neutral-300 bg-white px-3 py-2.5 text-base text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       />

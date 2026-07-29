@@ -1,7 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { createAuthApi, createLocalLedgerClient, createRestLedgerClient, createTeamsApi } from "@courtpot/api";
-import type { AuthApi, LedgerClient, RestClientConfig, TeamsApi } from "@courtpot/api";
+import {
+  createAuthApi,
+  createLocalLedgerClient,
+  createPublicTeamApi,
+  createRestLedgerClient,
+  createTeamsApi,
+} from "@courtpot/api";
+import type { AuthApi, LedgerClient, PublicTeamApi, RestClientConfig, TeamsApi } from "@courtpot/api";
 import { apiUrl } from "./config";
 import { tokenRef, unauthorizedHandler } from "./session";
 
@@ -26,6 +32,9 @@ export const ledgerClient: LedgerClient =
 export const authApi: AuthApi | null = restConfig === null ? null : createAuthApi(restConfig);
 
 export const teamsApi: TeamsApi | null = restConfig === null ? null : createTeamsApi(restConfig);
+
+/** Needs no session — the team PIN is the only credential. */
+export const publicTeamApi: PublicTeamApi | null = apiUrl === null ? null : createPublicTeamApi(apiUrl);
 
 /** Persists the TanStack Query cache across app restarts. */
 export const queryPersister = createAsyncStoragePersister({ storage: AsyncStorage });

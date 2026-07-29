@@ -259,10 +259,48 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
 
       const ok = await app.request(`/api/teams/${teamId}/unlock`, unauthenticated("1947"));
       expect(ok.status).toBe(200);
-      const page = (await ok.json()) as { team: { name: string }; roster: { name: string }[] };
+      const raw = await ok.text();
+      // Whoever holds the PIN is not necessarily a member: no secrets, no roles.
+      expect(raw).not.toContain("1947");
+      expect(raw).not.toContain('"pin"');
+      expect(raw).not.toContain('"username"');
+      expect(raw).not.toContain('"role"');
+      const page = JSON.parse(raw) as {
+        team: { name: string };
+        members: { name: string }[];
+        guests: { name: string }[];
+        balances: { name: string }[];
+        transfers: { id: string }[];
+      };
       expect(page.team.name).toBe("Test Squad");
-      expect(Array.isArray(page.roster)).toBe(true);
-      expect(JSON.stringify(page)).not.toContain("1947");
+      for (const list of [page.members, page.guests, page.balances, page.transfers]) {
+        expect(Array.isArray(list)).toBe(true);
+      }
+    });
+
+    it("opens a team page by slug as well as by id", async () => {
+      const withSlug = await app.request(`/api/teams/${teamId}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ name: "Test Squad", slug: "Test-Squad" }),
+      });
+      expect(withSlug.status).toBe(200);
+      // The slug is lowercased on the way in.
+      expect(((await withSlug.json()) as { slug: string }).slug).toBe("test-squad");
+
+      const bySlug = await app.request("/api/teams/test-squad/unlock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin: "1947" }),
+      });
+      expect(bySlug.status).toBe(200);
+    });
+
+    it("rejects a slug with illegal characters", async () => {
+      const res = await app.request(`/api/teams/${teamId}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ name: "Test Squad", slug: "not a slug!" }),
+      });
+      expect(res.status).toBe(400);
     });
 
     it("gives the same 401 for an unknown team as for a wrong PIN", async () => {

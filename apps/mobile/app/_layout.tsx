@@ -1,6 +1,6 @@
 import "../global.css";
 import type { ReactElement, ReactNode } from "react";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { LedgerClientProvider, createLedgerQueryClient } from "@courtpot/api";
@@ -15,9 +15,13 @@ import { HomeButton } from "../components/HomeButton";
 
 const queryClient = createLedgerQueryClient();
 
+/** The public team page lives outside the login gate. */
+const PUBLIC_PREFIX = "/t/";
+
 function AuthGate({ children }: { children: ReactNode }): ReactElement {
   const { ready, signedIn } = useAuth();
-  if (!isRemote) {
+  const pathname = usePathname();
+  if (!isRemote || pathname.startsWith(PUBLIC_PREFIX)) {
     return <>{children}</>;
   }
   if (!ready) {
@@ -61,6 +65,8 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="transfers" options={{ title: "Transfers" }} />
                 <Stack.Screen name="people" options={{ title: "People" }} />
                 <Stack.Screen name="teams" options={{ title: "Switch team" }} />
+                {/* Public: no home button, since the viewer has no team home. */}
+                <Stack.Screen name="t/[team]" options={{ title: "Team", headerLeft: undefined }} />
                 <Stack.Screen name="booking/member/new" options={{ presentation: "modal", title: "New member booking" }} />
                 <Stack.Screen name="booking/guest/new" options={{ presentation: "modal", title: "New guest booking" }} />
                 <Stack.Screen name="booking/[id]" options={{ title: "Edit booking" }} />

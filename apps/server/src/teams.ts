@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { Action, can, canSetPin } from "@courtpot/domain";
+import { Action, can, canSetPin, computeBalances } from "@courtpot/domain";
 import {
   AuditAction,
   AuditEntity,
+  Guest,
+  GuestBooking,
+  Member,
+  MemberBooking,
   Pin,
   Role,
   RoleSchema,
@@ -16,6 +20,7 @@ import {
   TeamPage,
   TeamUnlockInput,
   TeamWithPin,
+  Transfer,
   Username,
 } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
@@ -54,9 +59,11 @@ async function roleInTeam(db: Db, teamId: string, memberId: string): Promise<Rol
 export function publicTeamsRouter(db: Db): Hono {
   const router = new Hono();
 
-  router.post("/:teamId/unlock", zValidator("json", TeamUnlockInput), async (c) => {
-    const team = await db.team.findUnique({
-      where: { id: c.req.param("teamId") },
+  router.post("/:handle/unlock", zValidator("json", TeamUnlockInput), async (c) => {
+    // The handle is a slug or, for teams without one, the raw id.
+    const handle = c.req.param("handle");
+    const team = await db.team.findFirst({
+      where: { OR: [{ slug: handle.toLowerCase() }, { id: handle }] },
       omit: { pin: false },
     });
     // Same response whether the team is missing or the PIN is wrong, so the
@@ -64,25 +71,50 @@ export function publicTeamsRouter(db: Db): Hono {
     if (team === null || team.pin !== c.req.valid("json").pin) {
       return c.json({ error: "Wrong team PIN" }, 401);
     }
-    const roster = await db.teamMember.findMany({
-      where: { teamId: team.id },
-      include: { member: true },
-    });
-    return c.json(
-      TeamPage.parse({
-        team: Team.parse(team),
-        roster: roster
-          .map((row) => ({
-            memberId: row.memberId,
-            name: row.member.name,
-            role: RoleSchema.parse(row.role),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      }),
-    );
+    return c.json(TeamPage.parse(await loadTeamPage(db, team)));
   });
 
   return router;
+}
+
+/**
+ * The read-only view behind a team PIN: this team's people, its transfers and
+ * the balances derived from its whole ledger. Bookings feed the balances but are
+ * not listed, and balances are computed here so the payload never carries member
+ * roles or usernames just to run the engine.
+ */
+async function loadTeamPage(db: Db, team: { id: string; name: string }): Promise<unknown> {
+  const [memberships, guests, memberBookings, guestBookings, transfers] = await Promise.all([
+    db.teamMember.findMany({ where: { teamId: team.id }, include: { member: true } }),
+    db.guest.findMany({ where: { teamId: team.id }, orderBy: { name: "asc" } }),
+    db.memberBooking.findMany({ where: { teamId: team.id } }),
+    db.guestBooking.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
+    db.transfer.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
+  ]);
+
+  const members = memberships.map((row) => row.member).sort((a, b) => a.name.localeCompare(b.name));
+  const balances = computeBalances({
+    members: Member.array().parse(members),
+    guests: Guest.array().parse(guests.map((g) => ({ ...g, note: g.note ?? undefined }))),
+    memberBookings: MemberBooking.array().parse(memberBookings),
+    guestBookings: GuestBooking.array().parse(guestBookings),
+    transfers: Transfer.array().parse(transfers.map((t) => ({ ...t, note: t.note ?? undefined }))),
+  });
+
+  return {
+    team: { id: team.id, name: team.name },
+    members: members.map((m) => ({ id: m.id, name: m.name })),
+    guests: guests.map((g) => ({ id: g.id, name: g.name })),
+    balances,
+    transfers: transfers.map((t) => ({
+      id: t.id,
+      date: t.date,
+      fromId: t.fromId,
+      toId: t.toId,
+      amount: t.amount,
+      note: t.note ?? undefined,
+    })),
+  };
 }
 
 export function teamsRouter(db: Db): Hono<AuthEnv> {
@@ -112,11 +144,12 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
         return c.json({ error: "Only an admin of this team can edit it" }, 403);
       }
     }
-    const { name, pin } = c.req.valid("json");
+    const { name, pin, slug } = c.req.valid("json");
     const team = Team.parse(
       await db.team.update({
         where: { id: teamId },
-        data: pin === undefined ? { name } : { name, pin },
+        // Only overwrite the PIN or slug when one was supplied.
+        data: { name, ...(pin === undefined ? {} : { pin }), ...(slug === undefined ? {} : { slug }) },
       }),
     );
     await recordAudit(db, {
@@ -137,7 +170,14 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
     }
     const body = c.req.valid("json");
     const team = Team.parse(
-      await db.team.create({ data: { id: body.id, name: body.name, pin: body.pin ?? generatePin() } }),
+      await db.team.create({
+        data: {
+          id: body.id,
+          name: body.name,
+          slug: body.slug,
+          pin: body.pin ?? generatePin(),
+        },
+      }),
     );
     await recordAudit(db, {
       actorId: c.get("memberId"),
