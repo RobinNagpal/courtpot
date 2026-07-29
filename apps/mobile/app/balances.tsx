@@ -1,11 +1,9 @@
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
-import { useRouter } from "expo-router";
 import { useBalances } from "@courtpot/api";
 import type { BalanceT } from "@courtpot/schemas";
 import {
   BalanceChip,
-  Button,
   EmptyState,
   ErrorState,
   ListItem,
@@ -28,7 +26,6 @@ function BalanceRows({ balances }: { balances: readonly BalanceT[] }): ReactElem
 }
 
 export default function BalancesScreen(): ReactElement {
-  const router = useRouter();
   const teamId = useActiveTeamId();
   // Scoped to the active team — the ledger belongs to one team.
   const { balances, isPending, isError } = useBalances(teamId);
@@ -64,7 +61,6 @@ export default function BalancesScreen(): ReactElement {
         </>
       )}
 
-      <Button label="Settle up" onPress={() => router.push("/settle-up")} />
     </Screen>
   );
 }

@@ -18,18 +18,25 @@ interface TeamContextValue {
   teams: MemberTeamT[];
   activeTeamId: string;
   activeTeam: MemberTeamT | null;
+  /** The team the member lands on at login, if they have marked one. */
+  defaultTeamId: string | null;
   /** True when the member must still pick between several teams. */
   needsChoice: boolean;
   setActiveTeam: (teamId: string) => void;
+  /** Persist a team as the landing page, server-side. */
+  markDefault: (teamId: string) => Promise<void>;
+  refresh: () => void;
 }
 
 const TeamContext = createContext<TeamContextValue | null>(null);
 
 export function TeamProvider({ children }: { children: ReactNode }): ReactElement {
-  const { signedIn } = useAuth();
+  const { signedIn, member, refreshMember } = useAuth();
   const [ready, setReady] = useState(!isRemote);
   const [teams, setTeams] = useState<MemberTeamT[]>(SOLO_TEAM);
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const defaultTeamId = member?.defaultTeamId ?? null;
 
   useEffect(() => {
     if (!isRemote || teamsApi === null || !signedIn) {
@@ -42,11 +49,28 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
         AsyncStorage.getItem(STORAGE_KEY),
       ]);
       setTeams(mine);
-      // Keep the previous choice only if it is still one of the member's teams.
-      setChosenId(mine.length === 1 ? (mine[0]?.id ?? null) : mine.some((t) => t.id === stored) ? stored : null);
+      const isMine = (id: string | null): boolean => id !== null && mine.some((t) => t.id === id);
+      // A marked default wins, then the last choice, then the only team.
+      setChosenId(
+        isMine(defaultTeamId)
+          ? defaultTeamId
+          : isMine(stored)
+            ? stored
+            : mine.length === 1
+              ? (mine[0]?.id ?? null)
+              : null,
+      );
       setReady(true);
     })();
-  }, [signedIn]);
+  }, [signedIn, defaultTeamId, reloadKey]);
+
+  const markDefault = useCallback(
+    async (teamId: string): Promise<void> => {
+      await teamsApi?.setDefault(teamId);
+      await refreshMember();
+    },
+    [refreshMember],
+  );
 
   const setActiveTeam = useCallback((teamId: string): void => {
     setChosenId(teamId);
@@ -60,8 +84,11 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
         teams: SOLO_TEAM,
         activeTeamId: SOLO_TEAM_ID,
         activeTeam: null,
+        defaultTeamId: null,
         needsChoice: false,
         setActiveTeam,
+        markDefault: async () => undefined,
+        refresh: () => undefined,
       };
     }
     const active = teams.find((t) => t.id === chosenId) ?? null;
@@ -70,10 +97,13 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
       teams,
       activeTeamId: active?.id ?? "",
       activeTeam: active,
+      defaultTeamId,
       needsChoice: ready && active === null,
       setActiveTeam,
+      markDefault,
+      refresh: () => setReloadKey((k) => k + 1),
     };
-  }, [ready, teams, chosenId, setActiveTeam]);
+  }, [ready, teams, chosenId, defaultTeamId, setActiveTeam, markDefault]);
 
   return <TeamContext.Provider value={value}>{children}</TeamContext.Provider>;
 }

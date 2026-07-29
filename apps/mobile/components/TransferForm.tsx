@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { View } from "react-native";
 import { Transfer } from "@courtpot/schemas";
 import type { TransferT } from "@courtpot/schemas";
-import { Button, Input, parseDollarsToCents } from "@courtpot/ui";
+import { Button, Input, centsToDollarsText, parseDollarsToCents } from "@courtpot/ui";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
 import { useActiveTeamId } from "../lib/team";
@@ -13,18 +13,19 @@ import { ChipGroup } from "./ChipGroup";
 import { FormError } from "./FormError";
 
 interface TransferFormProps {
+  initial?: TransferT;
   submitLabel: string;
   onSubmit: (transfer: TransferT) => void;
 }
 
-export function TransferForm({ submitLabel, onSubmit }: TransferFormProps): ReactElement {
+export function TransferForm({ initial, submitLabel, onSubmit }: TransferFormProps): ReactElement {
   const teamId = useActiveTeamId();
   const people = usePersonOptions();
-  const [date, setDate] = useState(todayIsoDate());
-  const [fromId, setFromId] = useState<string | null>(null);
-  const [toId, setToId] = useState<string | null>(null);
-  const [amountText, setAmountText] = useState("");
-  const [note, setNote] = useState("");
+  const [date, setDate] = useState(initial?.date ?? todayIsoDate());
+  const [fromId, setFromId] = useState<string | null>(initial?.fromId ?? null);
+  const [toId, setToId] = useState<string | null>(initial?.toId ?? null);
+  const [amountText, setAmountText] = useState(initial === undefined ? "" : centsToDollarsText(initial.amount));
+  const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const options = people.map((person) => ({
@@ -43,8 +44,8 @@ export function TransferForm({ submitLabel, onSubmit }: TransferFormProps): Reac
       return;
     }
     const result = Transfer.safeParse({
-      id: newId(),
-      teamId,
+      id: initial?.id ?? newId(),
+      teamId: initial?.teamId ?? teamId,
       date,
       fromId,
       toId,

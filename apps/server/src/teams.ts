@@ -99,15 +99,23 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
     return c.json(TeamWithPin.array().parse(teams));
   });
 
-  /** Admin-only: rename a team, and optionally set a new PIN. */
+  /**
+   * Rename a team and optionally set a new PIN. A platform Admin may edit any
+   * team; a TeamMemberAdmin only one they belong to.
+   */
   router.put("/:teamId", zValidator("json", TeamEdit), async (c) => {
-    if (!can(c.get("role"), Action.ManageTeams)) {
-      return c.json({ error: "Only an Admin can edit a team" }, 403);
+    const teamId = c.req.param("teamId");
+    const isAdmin = can(c.get("role"), Action.ManageTeams);
+    if (!isAdmin) {
+      const teamRole = await roleInTeam(db, teamId, c.get("memberId"));
+      if (teamRole === null || !can(teamRole, Action.AddTeamMembers)) {
+        return c.json({ error: "Only an admin of this team can edit it" }, 403);
+      }
     }
     const { name, pin } = c.req.valid("json");
     const team = Team.parse(
       await db.team.update({
-        where: { id: c.req.param("teamId") },
+        where: { id: teamId },
         data: pin === undefined ? { name } : { name, pin },
       }),
     );

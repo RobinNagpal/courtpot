@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { useGuestBookings } from "@courtpot/api";
+import { useGuestBookingMutations, useGuestBookings } from "@courtpot/api";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
+import { RowActions } from "../components/RowActions";
 import { ChipGroup } from "../components/ChipGroup";
 import { guestBookingSubtitle, guestLabel, matchesGuestBooking } from "../lib/bookings";
 import { usePersonNames, usePersonOptions } from "../lib/people";
@@ -14,6 +15,7 @@ export default function GuestBookingsScreen(): ReactElement {
   const router = useRouter();
   const teamId = useActiveTeamId();
   const bookings = useGuestBookings();
+  const { remove } = useGuestBookingMutations();
   const names = usePersonNames();
   const people = usePersonOptions();
   const [personFilter, setPersonFilter] = useState<string | null>(null);
@@ -47,12 +49,19 @@ export default function GuestBookingsScreen(): ReactElement {
       ) : (
         <View>
           {rows.map((booking) => (
-            <ListItem
-              key={booking.id}
-              title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
-              subtitle={guestBookingSubtitle(booking, names)}
-              onPress={() => router.push(`/booking/${booking.id}`)}
-            />
+            <View key={booking.id}>
+              <ListItem
+                title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
+                subtitle={guestBookingSubtitle(booking, names)}
+                onPress={() => router.push(`/booking/${booking.id}`)}
+              />
+              <RowActions
+                onEdit={() => router.push(`/booking/${booking.id}`)}
+                deleteSubject="this guest booking"
+                deleteDetail={guestBookingSubtitle(booking, names)}
+                onDelete={() => remove.mutate(booking.id)}
+              />
+            </View>
           ))}
         </View>
       )}

@@ -53,8 +53,8 @@ export default function RootLayout(): ReactElement {
             <StatusBar style="auto" />
             <AuthGate>
               {/* Every section screen gets a home button back to the team page. */}
-              <Stack screenOptions={{ headerRight: () => <HomeButton /> }}>
-                <Stack.Screen name="index" options={{ title: "Team", headerRight: undefined }} />
+              <Stack screenOptions={{ headerLeft: () => <HomeButton /> }}>
+                <Stack.Screen name="index" options={{ title: "Team", headerLeft: undefined }} />
                 <Stack.Screen name="balances" options={{ title: "Balances" }} />
                 <Stack.Screen name="member-bookings" options={{ title: "Member Bookings" }} />
                 <Stack.Screen name="guest-bookings" options={{ title: "Guest Bookings" }} />
@@ -65,7 +65,6 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="booking/guest/new" options={{ presentation: "modal", title: "New guest booking" }} />
                 <Stack.Screen name="booking/[id]" options={{ title: "Edit booking" }} />
                 <Stack.Screen name="transfer/new" options={{ presentation: "modal", title: "Record transfer" }} />
-                <Stack.Screen name="settle-up" options={{ presentation: "modal", title: "Settle up" }} />
               </Stack>
             </AuthGate>
           </TeamProvider>

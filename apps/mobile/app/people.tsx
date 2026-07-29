@@ -13,6 +13,7 @@ import { useAuth } from "../lib/auth";
 import { isRemote } from "../lib/config";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
+import { useActiveTeamId } from "../lib/team";
 
 interface NamedRow {
   id: string;
@@ -109,7 +110,8 @@ function PersonEditor({ name, references, extraAction, onRename, onDelete }: Per
 }
 
 export default function PeopleScreen(): ReactElement {
-  const { input, isPending, isError } = useLedgerInput();
+  const teamId = useActiveTeamId();
+  const { input, isPending, isError } = useLedgerInput(teamId);
   const { member: signedInMember, logout } = useAuth();
   const memberMutations = useMemberMutations();
   const guestMutations = useGuestMutations();
@@ -154,7 +156,7 @@ export default function PeopleScreen(): ReactElement {
     if (nameTaken(name, ledger.guests)) {
       return "A guest with that name already exists.";
     }
-    const result = Guest.safeParse({ id: newId(), name });
+    const result = Guest.safeParse({ id: newId(), teamId, name });
     if (!result.success) {
       return firstIssueMessage(result.error);
     }

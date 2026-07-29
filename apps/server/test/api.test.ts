@@ -403,6 +403,51 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(res.status).toBe(403);
     });
 
+    it("marks a team as the default and rejects teams you are not on", async () => {
+      const mine = await app.request("/api/auth/session/default-team", {
+        ...authed("PUT"),
+        body: JSON.stringify({ teamId: ledgerTeamId }),
+      });
+      // Alice is not a member of ledgerTeamId, so this must be refused.
+      expect(mine.status).toBe(403);
+
+      await db.teamMember.create({
+        data: { teamId: ledgerTeamId, memberId: aliceId, role: Role.Admin },
+      });
+      const ok = await app.request("/api/auth/session/default-team", {
+        ...authed("PUT"),
+        body: JSON.stringify({ teamId: ledgerTeamId }),
+      });
+      expect(ok.status).toBe(200);
+      const raw = await ok.text();
+      expect(raw).not.toContain("pin");
+      const body = JSON.parse(raw) as { defaultTeamId: string };
+      expect(body.defaultTeamId).toBe(ledgerTeamId);
+    });
+
+    it("lets a TeamMemberAdmin edit their own team but not another", async () => {
+      // vic is TeamMemberAdmin of teamId by this point.
+      const own = await app.request(`/api/teams/${teamId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json", authorization: `Bearer ${viewerToken}` },
+        body: JSON.stringify({ name: "Renamed By Team Admin" }),
+      });
+      expect(own.status).toBe(200);
+
+      const other = await app.request(`/api/teams/${ledgerTeamId}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json", authorization: `Bearer ${viewerToken}` },
+        body: JSON.stringify({ name: "Not Mine" }),
+      });
+      expect(other.status).toBe(403);
+
+      // Put the name back for later assertions.
+      await app.request(`/api/teams/${teamId}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ name: "Test Squad" }),
+      });
+    });
+
     it("supports different roles in different teams for one member", async () => {
       const otherTeamId = randomUUID();
       await app.request("/api/teams", {

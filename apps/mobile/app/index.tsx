@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Role } from "@courtpot/schemas";
 import { Button, SectionTitle, cardClass } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { useAuth } from "../lib/auth";
@@ -21,7 +22,9 @@ const sections: { href: string; label: string; hint: string; icon: IconName }[] 
 export default function TeamHomeScreen(): ReactElement {
   const router = useRouter();
   const { activeTeam, teams } = useTeam();
-  const { logout } = useAuth();
+  const { member, logout } = useAuth();
+  const isAdmin = member?.role === Role.Admin || activeTeam?.role === Role.TeamMemberAdmin;
+  const showTeams = isRemote && (teams.length > 1 || isAdmin);
 
   return (
     <Screen>
@@ -54,7 +57,8 @@ export default function TeamHomeScreen(): ReactElement {
 
       <SectionTitle label="Team" />
       <Button label="People" variant="ghost" onPress={() => router.push("/people")} />
-      {teams.length > 1 ? <Button label="Switch team" variant="ghost" onPress={() => router.push("/teams")} /> : null}
+      {/* Only useful to someone with a choice to make, or an admin who manages teams. */}
+      {showTeams ? <Button label="Teams" variant="ghost" onPress={() => router.push("/teams")} /> : null}
       {isRemote ? (
         <Button
           label="Sign out"

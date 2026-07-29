@@ -18,7 +18,6 @@ export type { BalancesResult, LedgerInputResult } from "./queries";
 export {
   useGuestBookingMutations,
   useGuestMutations,
-  useLogSettlements,
   useMemberBookingMutations,
   useMemberMutations,
   useTransferMutations,

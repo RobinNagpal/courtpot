@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { useMemberBookings } from "@courtpot/api";
+import { useMemberBookingMutations, useMemberBookings } from "@courtpot/api";
 import { memberBookingSplit } from "@courtpot/domain";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
+import { RowActions } from "../components/RowActions";
 import { ChipGroup } from "../components/ChipGroup";
 import { matchesMemberBooking } from "../lib/bookings";
 import { usePersonNames, usePersonOptions } from "../lib/people";
@@ -15,6 +16,7 @@ export default function MemberBookingsScreen(): ReactElement {
   const router = useRouter();
   const teamId = useActiveTeamId();
   const bookings = useMemberBookings();
+  const { remove } = useMemberBookingMutations();
   const people = usePersonOptions();
   const names = usePersonNames();
   const [personFilter, setPersonFilter] = useState<string | null>(null);
@@ -47,16 +49,26 @@ export default function MemberBookingsScreen(): ReactElement {
         <EmptyState message="No member bookings yet. Add one with the button above." />
       ) : (
         <View>
-          {rows.map((booking) => (
-            <ListItem
-              key={booking.id}
-              title={booking.title === "" ? "Member booking" : booking.title}
-              subtitle={`${booking.date} · ${booking.memberIds.length} players · ${formatCents(
-                Object.values(memberBookingSplit(booking)).reduce((sum, share) => sum + share, 0),
-              )} total · ${names.get(booking.payers[0]?.memberId ?? "") ?? "?"} fronted`}
-              onPress={() => router.push(`/booking/${booking.id}`)}
-            />
-          ))}
+          {rows.map((booking) => {
+            const total = Object.values(memberBookingSplit(booking)).reduce((sum, share) => sum + share, 0);
+            return (
+              <View key={booking.id}>
+                <ListItem
+                  title={booking.title === "" ? "Member booking" : booking.title}
+                  subtitle={`${booking.date} · ${booking.memberIds.length} players · ${formatCents(total)} total · ${
+                    names.get(booking.payers[0]?.memberId ?? "") ?? "?"
+                  } fronted`}
+                  onPress={() => router.push(`/booking/${booking.id}`)}
+                />
+                <RowActions
+                  onEdit={() => router.push(`/booking/${booking.id}`)}
+                  deleteSubject="this booking"
+                  deleteDetail={`${booking.date} · ${formatCents(total)}. This removes it from everyone's balance.`}
+                  onDelete={() => remove.mutate(booking.id)}
+                />
+              </View>
+            );
+          })}
         </View>
       )}
     </Screen>

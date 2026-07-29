@@ -15,6 +15,8 @@ export const Member = z.object({
   active: z.boolean().default(true),
   /** Platform role. Only `Admin` grants anything here; team roles live on the membership. */
   role: RoleSchema.default(Role.TeamMember),
+  /** Team to land on at login. Null until the member marks one. */
+  defaultTeamId: z.string().uuid().nullable().default(null),
 });
 
 export const Guest = z.object({

@@ -89,29 +89,3 @@ export function useTransferMutations(): CollectionMutations<TransferT> {
 }
 
 /** Settle-up: write N transfers as one logical action, invalidate once. */
-export function useLogSettlements(): UseMutationResult<
-  TransferT[],
-  Error,
-  TransferT[],
-  OptimisticContext<TransferT>
-> {
-  const client = useLedgerClient();
-  const queryClient = useQueryClient();
-  const queryKey = queryKeys.transfers;
-
-  return useMutation({
-    mutationFn: (transfers: TransferT[]) => client.transfers.createMany(transfers),
-    onMutate: async (transfers: TransferT[]) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previous = queryClient.getQueryData<TransferT[]>(queryKey);
-      queryClient.setQueryData<TransferT[]>(queryKey, (rows) => [...(rows ?? []), ...transfers]);
-      return { previous };
-    },
-    onError: (_error: Error, _transfers: TransferT[], context: OptimisticContext<TransferT> | undefined) => {
-      if (context !== undefined) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
-  });
-}

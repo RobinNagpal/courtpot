@@ -20,6 +20,8 @@ interface AuthContextValue {
   /** Resolves to an error message, or null on success. */
   login: (input: LoginInputT) => Promise<string | null>;
   logout: () => Promise<void>;
+  /** Re-read the signed-in member, e.g. after their default team changes. */
+  refreshMember: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -80,13 +82,28 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactElemen
     [queryClient],
   );
 
+  const refreshMember = useCallback(async (): Promise<void> => {
+    if (authApi === null) {
+      return;
+    }
+    const fresh = await authApi.me().catch(() => null);
+    if (fresh !== null) {
+      setMember(fresh);
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      const parsed = raw === null ? null : StoredSession.safeParse(JSON.parse(raw));
+      if (parsed?.success === true) {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...parsed.data, member: fresh }));
+      }
+    }
+  }, []);
+
   const logout = useCallback(async (): Promise<void> => {
     await authApi?.logout().catch(() => undefined);
     clearSession();
   }, [clearSession]);
 
   return (
-    <AuthContext.Provider value={{ ready, member, signedIn, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ ready, member, signedIn, login, logout, refreshMember }}>{children}</AuthContext.Provider>
   );
 }
 

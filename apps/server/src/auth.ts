@@ -4,7 +4,7 @@ import type { MiddlewareHandler } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { can, effectiveRole } from "@courtpot/domain";
 import type { Action } from "@courtpot/domain";
-import { LoginInput, Member, MemberTeam, RoleSchema } from "@courtpot/schemas";
+import { LoginInput, Member, MemberTeam, RoleSchema, SetDefaultTeamInput } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
 import type { Db } from "./db";
 
@@ -92,6 +92,20 @@ export function sessionRouter(db: Db): Hono<AuthEnv> {
           .sort((a, b) => a.name.localeCompare(b.name)),
       ),
     );
+  });
+
+  /** Mark a team as the one to land on at login. Must be a team you belong to. */
+  router.put("/default-team", zValidator("json", SetDefaultTeamInput), async (c) => {
+    const { teamId } = c.req.valid("json");
+    const memberId = c.get("memberId");
+    const membership = await db.teamMember.findUnique({
+      where: { teamId_memberId: { teamId, memberId } },
+    });
+    if (membership === null) {
+      return c.json({ error: "You are not on that team" }, 403);
+    }
+    const member = await db.member.update({ where: { id: memberId }, data: { defaultTeamId: teamId } });
+    return c.json(Member.parse(member));
   });
 
   router.post("/logout", async (c) => {

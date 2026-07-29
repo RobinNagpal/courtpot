@@ -2,9 +2,9 @@ import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTransferMutations, useTransfers } from "@courtpot/api";
-import type { TransferT } from "@courtpot/schemas";
-import { Button, EmptyState, ErrorState, ListItem, LoadingState, confirmAsync, formatCents } from "@courtpot/ui";
+import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
+import { RowActions } from "../components/RowActions";
 import { usePersonNames } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
@@ -24,17 +24,6 @@ export default function TransfersScreen(): ReactElement {
 
   const rows = transfers.data.filter((t) => t.teamId === teamId).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 
-  const handleDelete = async (transfer: TransferT): Promise<void> => {
-    const from = names.get(transfer.fromId) ?? "?";
-    const to = names.get(transfer.toId) ?? "?";
-    const confirmed = await confirmAsync(
-      "Delete transfer?",
-      `${from} → ${to}: ${formatCents(transfer.amount)} on ${transfer.date}`,
-    );
-    if (confirmed) {
-      remove.mutate(transfer.id);
-    }
-  };
 
   return (
     <Screen>
@@ -43,16 +32,24 @@ export default function TransfersScreen(): ReactElement {
         <EmptyState message="No transfers yet. Record one when someone pays someone back." />
       ) : (
         <View>
-          {rows.map((transfer) => (
-            <ListItem
-              key={transfer.id}
-              title={`${names.get(transfer.fromId) ?? "?"} → ${names.get(transfer.toId) ?? "?"}: ${formatCents(transfer.amount)}`}
-              subtitle={`${transfer.date}${transfer.note === undefined ? "" : ` · ${transfer.note}`} · tap to delete`}
-              onPress={() => {
-                void handleDelete(transfer);
-              }}
-            />
-          ))}
+          {rows.map((transfer) => {
+            const label = `${names.get(transfer.fromId) ?? "?"} → ${names.get(transfer.toId) ?? "?"}: ${formatCents(transfer.amount)}`;
+            return (
+              <View key={transfer.id}>
+                <ListItem
+                  title={label}
+                  subtitle={`${transfer.date}${transfer.note === undefined ? "" : ` · ${transfer.note}`}`}
+                  onPress={() => router.push(`/transfer/${transfer.id}`)}
+                />
+                <RowActions
+                  onEdit={() => router.push(`/transfer/${transfer.id}`)}
+                  deleteSubject="this transfer"
+                  deleteDetail={`${label} on ${transfer.date}`}
+                  onDelete={() => remove.mutate(transfer.id)}
+                />
+              </View>
+            );
+          })}
         </View>
       )}
     </Screen>

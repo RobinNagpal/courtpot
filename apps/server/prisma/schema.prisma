@@ -3,7 +3,7 @@
 // and field names stay PascalCase/camelCase — the mapping is the only place the
 // two conventions meet.
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // "native" for local dev; the second target is the arm64 Lambda runtime
   // (Amazon Linux 2023) — deployment/scripts/build-lambda.sh ships its engine.
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
@@ -15,20 +15,24 @@ datasource db {
 }
 
 model Member {
-  id       String        @id
-  name     String        @unique
-  username String        @unique
+  id            String        @id
+  name          String        @unique
+  username      String        @unique
   // 4-digit login PIN. Excluded globally via the Prisma client's `omit`
   // config so it can never appear in an API response.
-  pin      String
-  active   Boolean       @default(true)
+  pin           String
+  active        Boolean       @default(true)
   // Platform role, stored as a plain string — the Role enum lives in
   // packages/schemas, so new roles need no migration.
-  role     String        @default("TeamMember")
-  sessions AuthSession[]
-  teams    TeamMember[]
-  audited  AuditLog[]
+  role          String        @default("TeamMember")
+  // The team this member lands on at login. Null until they pick one.
+  defaultTeamId String?       @map("default_team_id")
+  defaultTeam   Team?         @relation("MemberDefaultTeam", fields: [defaultTeamId], references: [id], onDelete: SetNull)
+  sessions      AuthSession[]
+  teams         TeamMember[]
+  audited       AuditLog[]
 
+  @@index([defaultTeamId])
   @@map("members")
 }
 
@@ -53,21 +57,24 @@ model AuditLog {
 }
 
 model Team {
-  id      String       @id
-  name    String       @unique
+  id             String          @id
+  name           String          @unique
   // 4-digit PIN that opens the team page. Omitted globally like a member's PIN,
   // so only the unlock check and the admin listing ever see it.
-  pin           String
-  members       TeamMember[]
-  guests        Guest[]
+  pin            String
+  members        TeamMember[]
+  defaultedBy    Member[]        @relation("MemberDefaultTeam")
+  guests         Guest[]
   memberBookings MemberBooking[]
-  guestBookings GuestBooking[]
-  transfers     Transfer[]
+  guestBookings  GuestBooking[]
+  transfers      Transfer[]
 
   @@map("teams")
 }
 
-/** A member's role in one team. The same member can hold a different role per team. */
+/**
+ * A member's role in one team. The same member can hold a different role per team.
+ */
 model TeamMember {
   teamId   String @map("team_id")
   memberId String @map("member_id")

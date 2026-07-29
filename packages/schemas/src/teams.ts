@@ -20,6 +20,9 @@ export const TeamEdit = z.object({
   pin: Pin.optional(),
 });
 
+/** Marking a team as your landing page. */
+export const SetDefaultTeamInput = z.object({ teamId: z.string().uuid() });
+
 /** What anyone submits to open a team page. */
 export const TeamUnlockInput = z.object({ pin: Pin });
 
@@ -57,6 +60,7 @@ export type TeamWithPinT = z.infer<typeof TeamWithPin>;
 export type TeamCreateT = z.infer<typeof TeamCreate>;
 export type TeamEditT = z.infer<typeof TeamEdit>;
 export type TeamUnlockInputT = z.infer<typeof TeamUnlockInput>;
+export type SetDefaultTeamInputT = z.infer<typeof SetDefaultTeamInput>;
 export type TeamMembershipT = z.infer<typeof TeamMembership>;
 export type TeamRosterEntryT = z.infer<typeof TeamRosterEntry>;
 export type TeamPageT = z.infer<typeof TeamPage>;

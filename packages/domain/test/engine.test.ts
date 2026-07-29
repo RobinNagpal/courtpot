@@ -7,7 +7,6 @@ import {
   memberBookingSplit,
   reconcileTotal,
   splitCents,
-  suggestSettlements,
 } from "../src";
 import type { LedgerInput } from "../src";
 
@@ -18,6 +17,7 @@ const member = (id: string, name: string, active = true): MemberT => ({
   name,
   active,
   role: Role.TeamMember,
+  defaultTeamId: null,
 });
 const guest = (id: string, name: string): GuestT => ({ id, teamId: TEAM, name });
 
@@ -239,25 +239,6 @@ describe("scenario 5: reconciliation invariant on random data", () => {
   });
 });
 
-describe("scenario 6: settle-up minimality", () => {
-  it("matches largest debtor to largest creditor", () => {
-    const balances: BalanceT[] = [
-      { personId: akshay.id, kind: "member", name: "Akshay", owedCents: 1400 },
-      { personId: puneet.id, kind: "member", name: "Puneet", owedCents: -1000 },
-      { personId: robinN.id, kind: "member", name: "Robin N", owedCents: -400 },
-    ];
-    expect(suggestSettlements(balances)).toEqual([
-      { fromId: akshay.id, toId: puneet.id, amountCents: 1000 },
-      { fromId: akshay.id, toId: robinN.id, amountCents: 400 },
-    ]);
-  });
-
-  it("returns nothing when everyone is settled", () => {
-    expect(
-      suggestSettlements([{ personId: robinN.id, kind: "member", name: "Robin N", owedCents: 0 }]),
-    ).toEqual([]);
-  });
-});
 
 describe("scenario 7: colour thresholds", () => {
   it("maps owed sign to status", () => {

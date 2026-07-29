@@ -9,7 +9,7 @@ interface TeamPickerScreenProps {
   onPicked?: () => void;
 }
 
-/** Shown when a member belongs to more than one team, and from the team page. */
+/** The post-login gate when a member belongs to more than one team. */
 export function TeamPickerScreen({ onPicked }: TeamPickerScreenProps = {}): ReactElement {
   const { teams, activeTeamId, setActiveTeam } = useTeam();
 

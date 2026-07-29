@@ -6,9 +6,18 @@ import {
   Member,
   MemberBooking,
   MemberTeam,
+  Team,
   Transfer,
 } from "@courtpot/schemas";
-import type { LoginInputT, LoginResultT, MemberT, MemberTeamT } from "@courtpot/schemas";
+import type {
+  LoginInputT,
+  LoginResultT,
+  MemberT,
+  MemberTeamT,
+  TeamCreateT,
+  TeamEditT,
+  TeamT,
+} from "@courtpot/schemas";
 import type { CollectionClient, Entity, LedgerClient } from "./client";
 
 export interface RestClientConfig {
@@ -124,10 +133,24 @@ export function createAuthApi(config: RestClientConfig): AuthApi {
 export interface TeamsApi {
   /** The signed-in member's teams, with their role in each. */
   mine(): Promise<MemberTeamT[]>;
+  /** Mark a team as the one to land on at login. */
+  setDefault(teamId: string): Promise<MemberT>;
+  edit(teamId: string, input: TeamEditT): Promise<TeamT>;
+  create(input: TeamCreateT): Promise<TeamT>;
 }
 
 export function createTeamsApi(config: RestClientConfig): TeamsApi {
+  const require = <T,>(row: T | null): T => {
+    if (row === null) {
+      throw new ApiError(500, "Empty response");
+    }
+    return row;
+  };
   return {
     mine: async () => (await request(config, "/api/auth/session/teams", "GET", MemberTeam.array())) ?? [],
+    setDefault: async (teamId) =>
+      require(await request(config, "/api/auth/session/default-team", "PUT", Member, { teamId })),
+    edit: async (teamId, input) => require(await request(config, `/api/teams/${teamId}`, "PUT", Team, input)),
+    create: async (input) => require(await request(config, "/api/teams", "POST", Team, input)),
   };
 }
