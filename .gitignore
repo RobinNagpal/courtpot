@@ -149,3 +149,10 @@ web-build/
 
 # Turborepo
 .turbo/
+
+# Terraform (keep .terraform.lock.hcl committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
