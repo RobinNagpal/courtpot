@@ -82,9 +82,8 @@ describe("scenario 2: member-fronted guest", () => {
     teamId: TEAM,
     date: "2026-07-02",
     title: "",
-    guestId: sam.id,
-    amount: 1500,
-    paidBy: robinN.id,
+    guests: [{ guestId: sam.id, amount: 1500 }],
+    paidBy: [robinN.id],
   };
   const base: LedgerInput = {
     ...emptyLedger,
@@ -122,7 +121,14 @@ describe('scenario 3: "ALL"-funded guest', () => {
       members: regulars,
       guests: [alex],
       guestBookings: [
-        { id: "gb-2", teamId: TEAM, date: "2026-07-04", title: "", guestId: alex.id, amount: 1000, paidBy: "ALL" },
+        {
+          id: "gb-2",
+          teamId: TEAM,
+          date: "2026-07-04",
+          title: "",
+          guests: [{ guestId: alex.id, amount: 1000 }],
+          paidBy: "ALL",
+        },
       ],
     });
     expect(owedByName(balances)).toEqual({
@@ -155,7 +161,14 @@ describe("scenario 4: extensible members", () => {
       },
     ],
     guestBookings: [
-      { id: "gb-3", teamId: TEAM, date: "2026-07-05", title: "", guestId: alex.id, amount: 1200, paidBy: "ALL" },
+      {
+        id: "gb-3",
+        teamId: TEAM,
+        date: "2026-07-05",
+        title: "",
+        guests: [{ guestId: alex.id, amount: 1200 }],
+        paidBy: "ALL",
+      },
     ],
   };
 
@@ -206,9 +219,13 @@ describe("scenario 5: reconciliation invariant on random data", () => {
         teamId: TEAM,
         date: "2026-01-01",
         title: "",
-        guestId: guests[nextInt(guests.length)]?.id ?? guests[0]!.id,
-        amount: 1 + nextInt(5000),
-        paidBy: nextInt(3) === 0 ? "ALL" : pickMember().id,
+        guests: [
+          {
+            guestId: guests[nextInt(guests.length)]?.id ?? guests[0]!.id,
+            amount: 1 + nextInt(5000),
+          },
+        ],
+        paidBy: nextInt(3) === 0 ? "ALL" : [pickMember().id],
       }));
       const transfers: TransferT[] = Array.from({ length: nextInt(8) }, (_, i) => {
         const from = pickPerson();
@@ -259,5 +276,95 @@ describe("scenario 8: rounding", () => {
 
   it("is deterministic regardless of input order", () => {
     expect(splitCents(1000, ["m-c", "m-a", "m-b"])).toEqual(splitCents(1000, ["m-a", "m-b", "m-c"]));
+  });
+});
+
+describe("scenario 7: multi-guest, multi-payer guest bookings", () => {
+  const sam = guest("g-7-sam", "Sam");
+  const alex = guest("g-8-alex", "Alex");
+
+  it("charges each guest their own amount and splits the total between payers", () => {
+    const balances = computeBalances({
+      ...emptyLedger,
+      members: regulars,
+      guests: [sam, alex],
+      guestBookings: [
+        {
+          id: "gb-7",
+          teamId: TEAM,
+          date: "2026-07-10",
+          title: "",
+          guests: [
+            { guestId: sam.id, amount: 1500 },
+            { guestId: alex.id, amount: 2500 },
+          ],
+          paidBy: [robinN.id, puneet.id],
+        },
+      ],
+    });
+    expect(owedByName(balances)).toMatchObject({
+      Sam: 1500,
+      Alex: 2500,
+      // $40 total split two ways.
+      "Robin N": -2000,
+      Puneet: -2000,
+    });
+    expect(reconcileTotal(balances)).toBe(0);
+  });
+
+  it('treats "ALL" as selecting every active member', () => {
+    const explicit = computeBalances({
+      ...emptyLedger,
+      members: regulars,
+      guests: [sam],
+      guestBookings: [
+        {
+          id: "gb-8",
+          teamId: TEAM,
+          date: "2026-07-11",
+          title: "",
+          guests: [{ guestId: sam.id, amount: 1000 }],
+          paidBy: regulars.map((m) => m.id),
+        },
+      ],
+    });
+    const shortcut = computeBalances({
+      ...emptyLedger,
+      members: regulars,
+      guests: [sam],
+      guestBookings: [
+        {
+          id: "gb-8",
+          teamId: TEAM,
+          date: "2026-07-11",
+          title: "",
+          guests: [{ guestId: sam.id, amount: 1000 }],
+          paidBy: "ALL",
+        },
+      ],
+    });
+    expect(owedByName(shortcut)).toEqual(owedByName(explicit));
+  });
+
+  it("splits an odd total exactly, losing no cent", () => {
+    const balances = computeBalances({
+      ...emptyLedger,
+      members: regulars,
+      guests: [sam, alex],
+      guestBookings: [
+        {
+          id: "gb-9",
+          teamId: TEAM,
+          date: "2026-07-12",
+          title: "",
+          guests: [
+            { guestId: sam.id, amount: 333 },
+            { guestId: alex.id, amount: 334 },
+          ],
+          paidBy: [robinN.id, robinS.id, puneet.id],
+        },
+      ],
+    });
+    expect(reconcileTotal(balances)).toBe(0);
   });
 });

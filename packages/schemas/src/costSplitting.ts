@@ -39,18 +39,35 @@ export const MemberBooking = z.object({
   payers: z.array(Payer).min(1, "Add at least one payer"),
 });
 
-/** A member id, or "ALL" meaning the common members' budget. */
-export const PaidBy = z.union([z.string().uuid(), z.literal("ALL")]);
+/** One guest on a guest booking, charged their own amount. */
+export const GuestCharge = z.object({
+  guestId: z.string().uuid(),
+  amount: PositiveCents,
+});
+
+/**
+ * Who fronted a guest booking: an explicit list of members, or "ALL" as a
+ * shortcut for every active member. Either way the credit is split equally
+ * between them, so "ALL" is exactly "select everyone".
+ */
+export const PaidBy = z.union([
+  z.array(z.string().uuid()).min(1, "Pick at least one payer"),
+  z.literal("ALL"),
+]);
 
 export const GuestBooking = z.object({
   id: z.string().uuid(),
   teamId: z.string().uuid(),
   date: IsoDate,
   title: z.string().trim().default(""),
-  guestId: z.string().uuid(),
-  amount: PositiveCents,
+  guests: z.array(GuestCharge).min(1, "Add at least one guest"),
   paidBy: PaidBy,
 });
+
+/** Total charged across a guest booking's guests. */
+export function guestBookingTotal(booking: { guests: readonly { amount: number }[] }): number {
+  return booking.guests.reduce((sum, charge) => sum + charge.amount, 0);
+}
 
 export const Transfer = z
   .object({
@@ -77,6 +94,7 @@ export type GuestT = z.infer<typeof Guest>;
 export type PayerT = z.infer<typeof Payer>;
 export type MemberBookingT = z.infer<typeof MemberBooking>;
 export type PaidByT = z.infer<typeof PaidBy>;
+export type GuestChargeT = z.infer<typeof GuestCharge>;
 export type GuestBookingT = z.infer<typeof GuestBooking>;
 export type TransferT = z.infer<typeof Transfer>;
 export type BalanceT = z.infer<typeof Balance>;

@@ -141,7 +141,7 @@ export function createStores(db: Db): LedgerStores {
       GuestBooking.parse(
         await db.guestBooking.update({
           where: { id: row.id },
-          data: { date: row.date, title: row.title, guestId: row.guestId, amount: row.amount, paidBy: row.paidBy },
+          data: { date: row.date, title: row.title, guests: row.guests, paidBy: row.paidBy },
         }),
       ),
     remove: async (id) => {

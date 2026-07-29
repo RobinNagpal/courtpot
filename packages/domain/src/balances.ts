@@ -43,13 +43,16 @@ export function computeBalances(input: LedgerInput): BalanceT[] {
 
   const activeMemberIds = input.members.filter((m) => m.active).map((m) => m.id);
   for (const booking of input.guestBookings) {
-    charge(booking.guestId, booking.amount);
-    if (booking.paidBy === "ALL") {
-      for (const [memberId, credit] of Object.entries(splitCents(booking.amount, activeMemberIds))) {
-        charge(memberId, -credit);
-      }
-    } else {
-      charge(booking.paidBy, -booking.amount);
+    // Each guest is charged their own amount; the payers share the total.
+    let total = 0;
+    for (const guestCharge of booking.guests) {
+      charge(guestCharge.guestId, guestCharge.amount);
+      total += guestCharge.amount;
+    }
+    // "ALL" is a shortcut for every active member, so both branches split equally.
+    const payerIds = booking.paidBy === "ALL" ? activeMemberIds : booking.paidBy;
+    for (const [memberId, credit] of Object.entries(splitCents(total, payerIds))) {
+      charge(memberId, -credit);
     }
   }
 

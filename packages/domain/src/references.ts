@@ -12,7 +12,9 @@ export function countPersonReferences(personId: string, input: LedgerInput): num
     }
   }
   for (const booking of input.guestBookings) {
-    if (booking.guestId === personId || booking.paidBy === personId) {
+    const isGuest = booking.guests.some((charge) => charge.guestId === personId);
+    const isPayer = booking.paidBy !== "ALL" && booking.paidBy.includes(personId);
+    if (isGuest || isPayer) {
       count += 1;
     }
   }

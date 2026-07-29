@@ -104,14 +104,15 @@ model MemberBooking {
 }
 
 model GuestBooking {
-  id      String @id
-  teamId  String @map("team_id")
-  date    String
-  title   String @default("")
-  guestId String @map("guest_id")
-  amount  Int
-  paidBy  String @map("paid_by")
-  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id     String @id
+  teamId String @map("team_id")
+  date   String
+  title  String @default("")
+  // [{ guestId, amount }] — each guest charged their own amount.
+  guests Json
+  // Either a list of member ids, or the string "ALL" meaning every active member.
+  paidBy Json   @map("paid_by")
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
   @@map("guest_bookings")

@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useGuestBookings, useMemberBookings } from "@courtpot/api";
 import { memberBookingSplit } from "@courtpot/domain";
+import { guestBookingTotal } from "@courtpot/schemas";
 import type { GuestBookingT, MemberBookingT } from "@courtpot/schemas";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../../components/Screen";
@@ -20,7 +21,26 @@ function rowMatchesPerson(row: BookingRow, personId: string): boolean {
       row.booking.memberIds.includes(personId) || row.booking.payers.some((payer) => payer.memberId === personId)
     );
   }
-  return row.booking.guestId === personId || row.booking.paidBy === personId;
+  return (
+    row.booking.guests.some((charge) => charge.guestId === personId) ||
+    (row.booking.paidBy !== "ALL" && row.booking.paidBy.includes(personId))
+  );
+}
+
+/** "Sam" for one guest, "Sam +2" for several. */
+function guestLabel(booking: GuestBookingT, names: Map<string, string>): string {
+  const [first, ...rest] = booking.guests;
+  const firstName = first === undefined ? "?" : (names.get(first.guestId) ?? "?");
+  return rest.length === 0 ? firstName : `${firstName} +${rest.length}`;
+}
+
+function payerLabel(booking: GuestBookingT, names: Map<string, string>): string {
+  if (booking.paidBy === "ALL") {
+    return "all members";
+  }
+  const [first, ...rest] = booking.paidBy;
+  const firstName = first === undefined ? "?" : (names.get(first) ?? "?");
+  return rest.length === 0 ? firstName : `${firstName} +${rest.length}`;
 }
 
 export default function BookingsScreen(): ReactElement {
@@ -84,10 +104,14 @@ export default function BookingsScreen(): ReactElement {
             ) : (
               <ListItem
                 key={row.booking.id}
-                title={row.booking.title === "" ? `Guest: ${names.get(row.booking.guestId) ?? "?"}` : row.booking.title}
-                subtitle={`${row.booking.date} · ${names.get(row.booking.guestId) ?? "?"} owes ${formatCents(
-                  row.booking.amount,
-                )} · paid by ${row.booking.paidBy === "ALL" ? "all members" : (names.get(row.booking.paidBy) ?? "?")}`}
+                title={
+                  row.booking.title === ""
+                    ? `Guest: ${guestLabel(row.booking, names)}`
+                    : row.booking.title
+                }
+                subtitle={`${row.booking.date} · ${guestLabel(row.booking, names)} owes ${formatCents(
+                  guestBookingTotal(row.booking),
+                )} · paid by ${payerLabel(row.booking, names)}`}
                 onPress={() => router.push(`/booking/${row.booking.id}`)}
               />
             ),
