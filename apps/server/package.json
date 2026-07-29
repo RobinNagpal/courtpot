@@ -30,6 +30,7 @@
   "devDependencies": {
     "@courtpot/config": "workspace:*",
     "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9.34.0",
     "prisma": "^6.16.1",
     "tsx": "^4.20.4",

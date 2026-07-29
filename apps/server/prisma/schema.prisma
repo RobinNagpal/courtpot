@@ -4,6 +4,9 @@
 // two conventions meet.
 generator client {
   provider = "prisma-client-js"
+  // "native" for local dev; the second target is the arm64 Lambda runtime
+  // (Amazon Linux 2023) — deployment/scripts/build-lambda.sh ships its engine.
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
