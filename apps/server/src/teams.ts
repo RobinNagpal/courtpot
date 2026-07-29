@@ -83,7 +83,10 @@ export function publicTeamsRouter(db: Db): Hono {
  * not listed, and balances are computed here so the payload never carries member
  * roles or usernames just to run the engine.
  */
-async function loadTeamPage(db: Db, team: { id: string; name: string }): Promise<unknown> {
+async function loadTeamPage(
+  db: Db,
+  team: { id: string; name: string; slug: string | null },
+): Promise<unknown> {
   const [memberships, guests, memberBookings, guestBookings, transfers] = await Promise.all([
     db.teamMember.findMany({ where: { teamId: team.id }, include: { member: true } }),
     db.guest.findMany({ where: { teamId: team.id }, orderBy: { name: "asc" } }),
@@ -102,7 +105,7 @@ async function loadTeamPage(db: Db, team: { id: string; name: string }): Promise
   });
 
   return {
-    team: { id: team.id, name: team.name },
+    team: { id: team.id, name: team.name, slug: team.slug },
     members: members.map((m) => ({ id: m.id, name: m.name })),
     guests: guests.map((g) => ({ id: g.id, name: g.name })),
     balances,

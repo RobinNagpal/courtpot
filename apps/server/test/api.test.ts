@@ -293,6 +293,8 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
         body: JSON.stringify({ pin: "1947" }),
       });
       expect(bySlug.status).toBe(200);
+      // The page must report the slug it was reached by, not null.
+      expect(((await bySlug.json()) as { team: { slug: string } }).team.slug).toBe("test-squad");
     });
 
     it("rejects a slug with illegal characters", async () => {
