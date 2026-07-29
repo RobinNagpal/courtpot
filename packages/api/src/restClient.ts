@@ -5,9 +5,10 @@ import {
   LoginResult,
   Member,
   MemberBooking,
+  MemberTeam,
   Transfer,
 } from "@courtpot/schemas";
-import type { LoginInputT, LoginResultT, MemberT } from "@courtpot/schemas";
+import type { LoginInputT, LoginResultT, MemberT, MemberTeamT } from "@courtpot/schemas";
 import type { CollectionClient, Entity, LedgerClient } from "./client";
 
 export interface RestClientConfig {
@@ -117,5 +118,16 @@ export function createAuthApi(config: RestClientConfig): AuthApi {
       }
       return member;
     },
+  };
+}
+
+export interface TeamsApi {
+  /** The signed-in member's teams, with their role in each. */
+  mine(): Promise<MemberTeamT[]>;
+}
+
+export function createTeamsApi(config: RestClientConfig): TeamsApi {
+  return {
+    mine: async () => (await request(config, "/api/auth/session/teams", "GET", MemberTeam.array())) ?? [],
   };
 }

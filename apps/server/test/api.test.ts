@@ -17,6 +17,8 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
   let token: string;
   const aliceId = randomUUID();
   const guestId = randomUUID();
+  // The ledger is team-scoped, so every row below belongs to this team.
+  const ledgerTeamId = randomUUID();
 
   const authed = (method = "GET"): RequestInit => ({
     method,
@@ -39,6 +41,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
     await db.teamMember.deleteMany();
     await db.team.deleteMany();
     await db.member.deleteMany();
+    await db.team.create({ data: { id: ledgerTeamId, name: "Ledger Team", pin: "1111" } });
     // Alice is the Admin — creating members and teams needs it.
     await db.member.create({
       data: { id: aliceId, name: "Alice", username: "alice", pin: "1234", role: Role.Admin },
@@ -101,7 +104,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
   it("round-trips guests, bookings and transfers", async () => {
     const guestRes = await app.request("/api/guests", {
       ...authed("POST"),
-      body: JSON.stringify({ id: guestId, name: "Sam" }),
+      body: JSON.stringify({ id: guestId, teamId: ledgerTeamId, name: "Sam" }),
     });
     expect(guestRes.status).toBe(201);
 
@@ -109,6 +112,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       ...authed("POST"),
       body: JSON.stringify({
         id: randomUUID(),
+        teamId: ledgerTeamId,
         date: "2026-07-27",
         title: "Test courts",
         memberIds: [aliceId],
@@ -120,7 +124,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
     const batchRes = await app.request("/api/transfers/batch", {
       ...authed("POST"),
       body: JSON.stringify([
-        { id: randomUUID(), date: "2026-07-27", fromId: guestId, toId: aliceId, amount: 500 },
+        { id: randomUUID(), teamId: ledgerTeamId, date: "2026-07-27", fromId: guestId, toId: aliceId, amount: 500 },
       ]),
     });
     expect(batchRes.status).toBe(201);
@@ -133,6 +137,90 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
   it("blocks deleting a referenced guest", async () => {
     const res = await app.request(`/api/guests/${guestId}`, authed("DELETE"));
     expect(res.status).toBe(409);
+  });
+
+  it("keeps each team's ledger separate", async () => {
+    const otherTeam = randomUUID();
+    await db.team.create({ data: { id: otherTeam, name: "Other Ledger Team", pin: "2222" } });
+    const mine = randomUUID();
+    const theirs = randomUUID();
+    for (const [id, teamId] of [
+      [mine, ledgerTeamId],
+      [theirs, otherTeam],
+    ]) {
+      const res = await app.request("/api/transfers", {
+        ...authed("POST"),
+        body: JSON.stringify({ id, teamId, date: "2026-07-28", fromId: guestId, toId: aliceId, amount: 100 }),
+      });
+      expect(res.status).toBe(201);
+    }
+    const all = (await (await app.request("/api/transfers", authed())).json()) as { id: string; teamId: string }[];
+    expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).toContain(mine);
+    expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).not.toContain(theirs);
+    expect(all.filter((t) => t.teamId === otherTeam).map((t) => t.id)).toEqual([theirs]);
+  });
+
+  describe("audit log", () => {
+    it("records a create, an update and a delete with the actor's name", async () => {
+      const id = randomUUID();
+      await app.request("/api/guests", {
+        ...authed("POST"),
+        body: JSON.stringify({ id, teamId: ledgerTeamId, name: "Audited Guest" }),
+      });
+      await app.request(`/api/guests/${id}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ id, teamId: ledgerTeamId, name: "Audited Guest", note: "renamed" }),
+      });
+      await app.request(`/api/guests/${id}`, authed("DELETE"));
+
+      const res = await app.request("/api/auditLogs", authed());
+      expect(res.status).toBe(200);
+      const log = (await res.json()) as {
+        action: string;
+        entity: string;
+        entityId: string;
+        actorName: string;
+        details: Record<string, string>;
+      }[];
+      const mine = log.filter((entry) => entry.entityId === id);
+      expect(mine.map((e) => e.action)).toEqual(["Delete", "Update", "Create"]);
+      expect(mine.every((e) => e.entity === "Guest")).toBe(true);
+      expect(mine.every((e) => e.actorName === "Alice")).toBe(true);
+      // The delete entry keeps a snapshot, not just the id.
+      expect(mine[0]?.details.name).toBe("Audited Guest");
+      expect(mine[1]?.details.note).toBe("renamed");
+    });
+
+    it("never records a PIN, even for member writes", async () => {
+      const id = randomUUID();
+      await app.request("/api/members", {
+        ...authed("POST"),
+        body: JSON.stringify({ id, name: "Pin Probe", username: "pinprobe", active: true }),
+      });
+      const res = await app.request("/api/auditLogs", authed());
+      const body = await res.text();
+      expect(body).toContain("Pin Probe");
+      expect(body).not.toContain("pin\"");
+      const stored = await db.auditLog.findFirst({ where: { entityId: id } });
+      expect(stored?.details).not.toHaveProperty("pin");
+    });
+
+    it("hides the audit log from a plain TeamMember", async () => {
+      const id = randomUUID();
+      await db.member.create({
+        data: { id, name: "Plain Pat", username: "pat", pin: "3333", role: Role.TeamMember },
+      });
+      const res = await app.request("/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "pat", pin: "3333" }),
+      });
+      const { token: patToken } = (await res.json()) as { token: string };
+      const denied = await app.request("/api/auditLogs", {
+        headers: { authorization: `Bearer ${patToken}` },
+      });
+      expect(denied.status).toBe(403);
+    });
   });
 
   describe("teams and roles", () => {
@@ -149,12 +237,88 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       return body.token;
     };
 
-    it("lets an Admin create a team", async () => {
+    it("lets an Admin create a team with a PIN, and never returns the PIN", async () => {
       const res = await app.request("/api/teams", {
         ...authed("POST"),
-        body: JSON.stringify({ id: teamId, name: "London Badminton 40+ Smashers" }),
+        body: JSON.stringify({ id: teamId, name: "Test Squad", pin: "1947" }),
       });
       expect(res.status).toBe(201);
+      expect(await res.text()).not.toContain("1947");
+      const list = await (await app.request("/api/teams", authed())).text();
+      expect(list).not.toContain("pin");
+    });
+
+    it("opens the team page with the right PIN and no member login", async () => {
+      const unauthenticated = (pin: string): RequestInit => ({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const wrong = await app.request(`/api/teams/${teamId}/unlock`, unauthenticated("0000"));
+      expect(wrong.status).toBe(401);
+
+      const ok = await app.request(`/api/teams/${teamId}/unlock`, unauthenticated("1947"));
+      expect(ok.status).toBe(200);
+      const page = (await ok.json()) as { team: { name: string }; roster: { name: string }[] };
+      expect(page.team.name).toBe("Test Squad");
+      expect(Array.isArray(page.roster)).toBe(true);
+      expect(JSON.stringify(page)).not.toContain("1947");
+    });
+
+    it("gives the same 401 for an unknown team as for a wrong PIN", async () => {
+      const res = await app.request(`/api/teams/${randomUUID()}/unlock`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin: "1947" }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("lets an Admin list team PINs and edit name and PIN", async () => {
+      const withPins = await app.request("/api/teams/with-pins", authed());
+      expect(withPins.status).toBe(200);
+      const teams = (await withPins.json()) as { id: string; pin: string }[];
+      expect(teams.find((t) => t.id === teamId)?.pin).toBe("1947");
+
+      const edit = await app.request(`/api/teams/${teamId}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ name: "Test Squad Reloaded", pin: "2626" }),
+      });
+      expect(edit.status).toBe(200);
+
+      const old = await app.request(`/api/teams/${teamId}/unlock`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin: "1947" }),
+      });
+      expect(old.status).toBe(401);
+      const fresh = await app.request(`/api/teams/${teamId}/unlock`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin: "2626" }),
+      });
+      expect(fresh.status).toBe(200);
+
+      // Put the name back so later assertions are unaffected.
+      await app.request(`/api/teams/${teamId}`, {
+        ...authed("PUT"),
+        body: JSON.stringify({ name: "Test Squad" }),
+      });
+    });
+
+    it("puts a newly created member in the default Sher-e-Smash team", async () => {
+      const id = randomUUID();
+      const res = await app.request("/api/members", {
+        ...authed("POST"),
+        body: JSON.stringify({ id, name: "Teamless Tim", username: "tim", active: true }),
+      });
+      expect(res.status).toBe(201);
+      const memberships = await db.teamMember.findMany({
+        where: { memberId: id },
+        include: { team: true },
+      });
+      expect(memberships.length).toBeGreaterThanOrEqual(1);
+      expect(memberships.map((m) => m.team.name)).toContain("Sher-e-Smash");
     });
 
     it("adds a brand new member to the team with a chosen PIN", async () => {
@@ -189,7 +353,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect((await app.request("/api/transfers", viewer("GET"))).status).toBe(200);
       const write = await app.request("/api/guests", {
         ...viewer("POST"),
-        body: JSON.stringify({ id: randomUUID(), name: "Nope" }),
+        body: JSON.stringify({ id: randomUUID(), teamId: ledgerTeamId, name: "Nope" }),
       });
       expect(write.status).toBe(403);
     });
@@ -198,7 +362,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       const res = await app.request("/api/teams", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${viewerToken}` },
-        body: JSON.stringify({ id: randomUUID(), name: "Breakaway club" }),
+        body: JSON.stringify({ id: randomUUID(), name: "Breakaway club", pin: "9090" }),
       });
       expect(res.status).toBe(403);
     });
@@ -223,11 +387,11 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       const res = await app.request(`/api/teams/${teamId}/members`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${viewerToken}` },
-        body: JSON.stringify({ name: "New Neil", username: "neil", pin: "5555", role: Role.TeamMember }),
+        body: JSON.stringify({ name: "New Neil", username: "neil", pin: "4444", role: Role.TeamMember }),
       });
       expect(res.status).toBe(201);
       const stored = await db.member.findUnique({ where: { username: "neil" }, omit: { pin: false } });
-      expect(stored?.pin).toBe("5555");
+      expect(stored?.pin).toBe("4444");
     });
 
     it("stops a TeamMemberAdmin granting the Admin role", async () => {
@@ -243,7 +407,7 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       const otherTeamId = randomUUID();
       await app.request("/api/teams", {
         ...authed("POST"),
-        body: JSON.stringify({ id: otherTeamId, name: "Sunday singles" }),
+        body: JSON.stringify({ id: otherTeamId, name: "Sunday singles", pin: "5150" }),
       });
       const neil = await db.member.findUniqueOrThrow({ where: { username: "neil" } });
       const res = await app.request(`/api/teams/${otherTeamId}/members`, {

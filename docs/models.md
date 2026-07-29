@@ -278,4 +278,7 @@ rather than reshuffling on every render.
 | `GuestBooking` | yes | one guest, one member **or** `"ALL"` | guest charged, funder credited |
 | `Transfer` | yes | any two people, member or guest | must differ (`refine`); sender credited |
 | `AuthSession` | yes | one member (FK, cascade) | bearer token; no expiry column |
+| `Team` | yes | — | unique `name` |
+| `TeamMember` | yes | one team + one member (composite PK) | holds the per-team `role` |
+| `AuditLog` | yes | acting member (FK, `SET NULL`) | append-only; `actorName` denormalised so entries outlive the actor |
 | `Balance` | **no** | — | derived per render; sum always exactly 0 |

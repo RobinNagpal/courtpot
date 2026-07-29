@@ -11,6 +11,8 @@ export enum Action {
   /** Create or change bookings, transfers and guests. */
   WriteLedger = "WriteLedger",
   ReadLedger = "ReadLedger",
+  /** See who changed what. Admins and team admins only. */
+  ReadAuditLog = "ReadAuditLog",
 }
 
 const allowed: Record<RoleT, readonly Action[]> = {
@@ -20,8 +22,14 @@ const allowed: Record<RoleT, readonly Action[]> = {
     Action.AddTeamMembers,
     Action.WriteLedger,
     Action.ReadLedger,
+    Action.ReadAuditLog,
   ],
-  [Role.TeamMemberAdmin]: [Action.AddTeamMembers, Action.WriteLedger, Action.ReadLedger],
+  [Role.TeamMemberAdmin]: [
+    Action.AddTeamMembers,
+    Action.WriteLedger,
+    Action.ReadLedger,
+    Action.ReadAuditLog,
+  ],
   [Role.TeamMember]: [Action.WriteLedger, Action.ReadLedger],
   [Role.TeamMemberViewer]: [Action.ReadLedger],
 };

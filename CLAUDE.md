@@ -91,3 +91,19 @@ The rules themselves live in `packages/domain/src/permissions.ts` as pure functi
 not team-scoped, so `effectiveRole` decides what a member may do: a platform `Admin` always
 wins, otherwise the highest of their team roles, falling back to the platform role when they
 belong to no team. Gate routes with `requireCan(Action.…)` rather than comparing roles inline.
+
+## Audit log
+
+Every mutation is recorded in `audit_logs`, and the log is readable only by `Admin` and
+`TeamMemberAdmin` (`Action.ReadAuditLog`).
+
+- **Write through `collectionRouter`.** It is the single choke point for all five ledger
+  collections, so a new collection is audited for free. Only routes outside it — the teams
+  router — call `recordAudit` directly.
+- **Never log a secret.** `recordAudit` strips `pin` from every snapshot regardless of what
+  the caller passed. Extend `SECRET_KEYS` in `src/audit.ts` when a new sensitive field
+  appears.
+- **The log outlives its actor.** `actorId` is `SET NULL` on member delete while `actorName`
+  is denormalised, so history never loses attribution.
+- Audit writes swallow their own errors: a failed audit must not fail an otherwise successful
+  mutation.

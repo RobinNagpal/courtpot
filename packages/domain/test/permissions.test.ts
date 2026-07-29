@@ -26,6 +26,13 @@ describe("role permissions", () => {
     expect(can(Role.TeamMemberViewer, Action.WriteLedger)).toBe(false);
   });
 
+  it("shows the audit log to admins and team admins only", () => {
+    expect(can(Role.Admin, Action.ReadAuditLog)).toBe(true);
+    expect(can(Role.TeamMemberAdmin, Action.ReadAuditLog)).toBe(true);
+    expect(can(Role.TeamMember, Action.ReadAuditLog)).toBe(false);
+    expect(can(Role.TeamMemberViewer, Action.ReadAuditLog)).toBe(false);
+  });
+
   describe("PIN control", () => {
     it("lets an Admin set and update any PIN", () => {
       expect(canSetPin(Role.Admin, true)).toBe(true);

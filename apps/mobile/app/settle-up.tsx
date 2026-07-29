@@ -8,10 +8,12 @@ import type { TransferT } from "@courtpot/schemas";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { newId } from "../lib/id";
+import { useActiveTeamId } from "../lib/team";
 import { todayIsoDate } from "../lib/date";
 import { usePersonNames } from "../lib/people";
 
 export default function SettleUpScreen(): ReactElement {
+  const teamId = useActiveTeamId();
   const router = useRouter();
   const { balances, isPending, isError } = useBalances();
   const names = usePersonNames();
@@ -33,6 +35,7 @@ export default function SettleUpScreen(): ReactElement {
     const date = todayIsoDate();
     const transfers: TransferT[] = settlements.map((settlement) => ({
       id: newId(),
+      teamId,
       date,
       fromId: settlement.fromId,
       toId: settlement.toId,

@@ -4,12 +4,12 @@ import type { MiddlewareHandler } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { can, effectiveRole } from "@courtpot/domain";
 import type { Action } from "@courtpot/domain";
-import { LoginInput, Member, RoleSchema } from "@courtpot/schemas";
+import { LoginInput, Member, MemberTeam, RoleSchema } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
 import type { Db } from "./db";
 
 export interface AuthEnv {
-  Variables: { memberId: string; role: RoleT };
+  Variables: { memberId: string; actorName: string; role: RoleT };
 }
 
 export function authRouter(db: Db): Hono {
@@ -46,6 +46,7 @@ export function requireAuth(db: Db): MiddlewareHandler<AuthEnv> {
       return c.json({ error: "Unauthorized" }, 401);
     }
     c.set("memberId", session.memberId);
+    c.set("actorName", session.member.name);
     c.set(
       "role",
       effectiveRole(
@@ -76,6 +77,21 @@ export function sessionRouter(db: Db): Hono<AuthEnv> {
       return c.json({ error: "Unauthorized" }, 401);
     }
     return c.json(Member.parse(member));
+  });
+
+  /** The caller's teams, with their role in each. Drives post-login routing. */
+  router.get("/teams", async (c) => {
+    const rows = await db.teamMember.findMany({
+      where: { memberId: c.get("memberId") },
+      include: { team: true },
+    });
+    return c.json(
+      MemberTeam.array().parse(
+        rows
+          .map((row) => ({ id: row.team.id, name: row.team.name, role: RoleSchema.parse(row.role) }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      ),
+    );
   });
 
   router.post("/logout", async (c) => {

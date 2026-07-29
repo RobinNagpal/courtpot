@@ -11,13 +11,15 @@ import {
 } from "../src";
 import type { LedgerInput } from "../src";
 
+const TEAM = "00000000-0000-4000-8000-000000000001";
+
 const member = (id: string, name: string, active = true): MemberT => ({
   id,
   name,
   active,
   role: Role.TeamMember,
 });
-const guest = (id: string, name: string): GuestT => ({ id, name });
+const guest = (id: string, name: string): GuestT => ({ id, teamId: TEAM, name });
 
 const emptyLedger: LedgerInput = {
   members: [],
@@ -40,6 +42,7 @@ const owedByName = (balances: readonly BalanceT[]): Record<string, number> =>
 describe("scenario 1: equal split", () => {
   const booking: MemberBookingT = {
     id: "b-1",
+    teamId: TEAM,
     date: "2026-07-01",
     title: "Sunday courts",
     memberIds: [robinN.id, robinS.id, puneet.id, akshay.id],
@@ -76,6 +79,7 @@ describe("scenario 2: member-fronted guest", () => {
   const sam = guest("g-1-sam", "Sam");
   const guestBooking: GuestBookingT = {
     id: "gb-1",
+    teamId: TEAM,
     date: "2026-07-02",
     title: "",
     guestId: sam.id,
@@ -98,6 +102,7 @@ describe("scenario 2: member-fronted guest", () => {
   it("a repayment transfer settles the guest", () => {
     const repayment: TransferT = {
       id: "t-1",
+      teamId: TEAM,
       date: "2026-07-03",
       fromId: sam.id,
       toId: robinN.id,
@@ -117,7 +122,7 @@ describe('scenario 3: "ALL"-funded guest', () => {
       members: regulars,
       guests: [alex],
       guestBookings: [
-        { id: "gb-2", date: "2026-07-04", title: "", guestId: alex.id, amount: 1000, paidBy: "ALL" },
+        { id: "gb-2", teamId: TEAM, date: "2026-07-04", title: "", guestId: alex.id, amount: 1000, paidBy: "ALL" },
       ],
     });
     expect(owedByName(balances)).toEqual({
@@ -142,6 +147,7 @@ describe("scenario 4: extensible members", () => {
     memberBookings: [
       {
         id: "b-2",
+        teamId: TEAM,
         date: "2026-07-05",
         title: "",
         memberIds: [robinN.id, dave.id],
@@ -149,7 +155,7 @@ describe("scenario 4: extensible members", () => {
       },
     ],
     guestBookings: [
-      { id: "gb-3", date: "2026-07-05", title: "", guestId: alex.id, amount: 1200, paidBy: "ALL" },
+      { id: "gb-3", teamId: TEAM, date: "2026-07-05", title: "", guestId: alex.id, amount: 1200, paidBy: "ALL" },
     ],
   };
 
@@ -189,6 +195,7 @@ describe("scenario 5: reconciliation invariant on random data", () => {
 
       const memberBookings: MemberBookingT[] = Array.from({ length: nextInt(8) }, (_, i) => ({
         id: `b-${i}`,
+        teamId: TEAM,
         date: "2026-01-01",
         title: "",
         memberIds: [...new Set(Array.from({ length: 1 + nextInt(members.length) }, () => pickMember().id))],
@@ -196,6 +203,7 @@ describe("scenario 5: reconciliation invariant on random data", () => {
       }));
       const guestBookings: GuestBookingT[] = Array.from({ length: nextInt(8) }, (_, i) => ({
         id: `gb-${i}`,
+        teamId: TEAM,
         date: "2026-01-01",
         title: "",
         guestId: guests[nextInt(guests.length)]?.id ?? guests[0]!.id,
@@ -205,7 +213,7 @@ describe("scenario 5: reconciliation invariant on random data", () => {
       const transfers: TransferT[] = Array.from({ length: nextInt(8) }, (_, i) => {
         const from = pickPerson();
         const to = people.find((p) => p.id !== from.id) ?? from;
-        return { id: `t-${i}`, date: "2026-01-02", fromId: from.id, toId: to.id, amount: 1 + nextInt(4000) };
+        return { id: `t-${i}`, teamId: TEAM, date: "2026-01-02", fromId: from.id, toId: to.id, amount: 1 + nextInt(4000) };
       }).filter((t) => t.fromId !== t.toId);
 
       const balances = computeBalances({ members, guests, memberBookings, guestBookings, transfers });

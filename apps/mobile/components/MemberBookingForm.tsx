@@ -7,6 +7,7 @@ import type { MemberBookingT, PayerT } from "@courtpot/schemas";
 import { Button, Input, centsToDollarsText, formatCents, parseDollarsToCents } from "@courtpot/ui";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
+import { useActiveTeamId } from "../lib/team";
 import { todayIsoDate } from "../lib/date";
 import { ChipGroup } from "./ChipGroup";
 import { FormError } from "./FormError";
@@ -25,6 +26,7 @@ interface MemberBookingFormProps {
 const MAX_PAYERS = 2;
 
 export function MemberBookingForm({ initial, submitLabel, onSubmit }: MemberBookingFormProps): ReactElement {
+  const teamId = useActiveTeamId();
   const members = useMembers();
   const [date, setDate] = useState(initial?.date ?? todayIsoDate());
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -65,6 +67,7 @@ export function MemberBookingForm({ initial, submitLabel, onSubmit }: MemberBook
     }
     const result = MemberBooking.safeParse({
       id: initial?.id ?? newId(),
+      teamId: initial?.teamId ?? teamId,
       date,
       title,
       memberIds,

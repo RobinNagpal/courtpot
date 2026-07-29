@@ -7,6 +7,7 @@ import type { GuestBookingT, PaidByT } from "@courtpot/schemas";
 import { Button, Input, formatCents, centsToDollarsText, parseDollarsToCents } from "@courtpot/ui";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
+import { useActiveTeamId } from "../lib/team";
 import { todayIsoDate } from "../lib/date";
 import { ChipGroup } from "./ChipGroup";
 import { FormError } from "./FormError";
@@ -18,6 +19,7 @@ interface GuestBookingFormProps {
 }
 
 export function GuestBookingForm({ initial, submitLabel, onSubmit }: GuestBookingFormProps): ReactElement {
+  const teamId = useActiveTeamId();
   const members = useMembers();
   const guests = useGuests();
   const [date, setDate] = useState(initial?.date ?? todayIsoDate());
@@ -53,6 +55,7 @@ export function GuestBookingForm({ initial, submitLabel, onSubmit }: GuestBookin
     }
     const result = GuestBooking.safeParse({
       id: initial?.id ?? newId(),
+      teamId: initial?.teamId ?? teamId,
       date,
       title,
       guestId,

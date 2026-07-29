@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pin, Role, RoleSchema, Username } from "@courtpot/schemas";
 import { createDb } from "../db";
+import { parseArgs } from "./args";
 import { generatePin } from "../pin";
 
 /**
@@ -8,28 +9,10 @@ import { generatePin } from "../pin";
  * and role, optionally adding them to a team.
  *
  *   pnpm user:add -- --username robin --pin 1234 --role Admin --name "Robin N"
- *   pnpm user:add -- --username sam --role TeamMember --team "London Badminton 40+ Smashers"
+ *   pnpm user:add -- --username sam --role TeamMember --team "Sher-e-Smash"
  *
  * --pin is optional (one is generated). --team takes a team name.
  */
-function parseArgs(argv: string[]): Map<string, string> {
-  const args = new Map<string, string>();
-  for (let i = 0; i < argv.length; i += 1) {
-    const key = argv[i];
-    // pnpm forwards the bare `--` separator into argv; ignore it.
-    if (key?.startsWith("--") !== true || key === "--") {
-      continue;
-    }
-    const value = argv[i + 1];
-    if (value === undefined || value.startsWith("--")) {
-      throw new Error(`${key} needs a value`);
-    }
-    args.set(key.slice(2), value);
-    i += 1;
-  }
-  return args;
-}
-
 function usage(message: string): never {
   console.error(`${message}
 

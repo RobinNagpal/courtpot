@@ -4,6 +4,7 @@ import {
   Member,
   MemberBooking,
   MemberCreate,
+  Role,
   Transfer,
 } from "@courtpot/schemas";
 import type {
@@ -15,6 +16,7 @@ import type {
 } from "@courtpot/schemas";
 import { countPersonReferences } from "@courtpot/domain";
 import type { LedgerInput } from "@courtpot/domain";
+import { ensureTeamMembership } from "./bootstrap";
 import type { CollectionStore } from "./collections";
 import type { Db } from "./db";
 import { ConflictError } from "./errors";
@@ -55,11 +57,18 @@ async function assertUnreferenced(db: Db, personId: string, label: string): Prom
 export function createStores(db: Db): LedgerStores {
   const members: CollectionStore<MemberCreateT> = {
     list: async () => MemberCreate.array().parse(await db.member.findMany({ orderBy: { name: "asc" } })),
-    create: async (row) => MemberCreate.parse(await db.member.create({ data: { ...row, pin: generatePin() } })),
+    create: async (row) => {
+      const created = await db.member.create({ data: { ...row, pin: generatePin() } });
+      // Nobody is left teamless.
+      await ensureTeamMembership(db, created.id, Role.TeamMember);
+      return MemberCreate.parse(created);
+    },
     createMany: async (rows) => {
       const created: MemberCreateT[] = [];
       for (const row of rows) {
-        created.push(MemberCreate.parse(await db.member.create({ data: { ...row, pin: generatePin() } })));
+        const made = await db.member.create({ data: { ...row, pin: generatePin() } });
+        await ensureTeamMembership(db, made.id, Role.TeamMember);
+        created.push(MemberCreate.parse(made));
       }
       return created;
     },

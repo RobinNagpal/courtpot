@@ -27,14 +27,42 @@ model Member {
   role     String        @default("TeamMember")
   sessions AuthSession[]
   teams    TeamMember[]
+  audited  AuditLog[]
 
   @@map("members")
+}
+
+/**
+ * Append-only record of who changed what. actorName is denormalised so an entry
+ * still names its author after that member is deleted (actorId goes null).
+ */
+model AuditLog {
+  id        String   @id
+  at        DateTime @default(now())
+  actorId   String?  @map("actor_id")
+  actorName String   @map("actor_name")
+  action    String
+  entity    String
+  entityId  String   @map("entity_id")
+  details   Json
+  actor     Member?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([at])
+  @@index([entity, entityId])
+  @@map("audit_logs")
 }
 
 model Team {
   id      String       @id
   name    String       @unique
-  members TeamMember[]
+  // 4-digit PIN that opens the team page. Omitted globally like a member's PIN,
+  // so only the unlock check and the admin listing ever see it.
+  pin           String
+  members       TeamMember[]
+  guests        Guest[]
+  memberBookings MemberBooking[]
+  guestBookings GuestBooking[]
+  transfers     Transfer[]
 
   @@map("teams")
 }
@@ -52,42 +80,54 @@ model TeamMember {
 }
 
 model Guest {
-  id   String  @id
-  name String  @unique
-  note String?
+  id     String  @id
+  teamId String  @map("team_id")
+  name   String  @unique
+  note   String?
+  team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
+  @@index([teamId])
   @@map("guests")
 }
 
 model MemberBooking {
   id        String   @id
+  teamId    String   @map("team_id")
   date      String
   title     String   @default("")
   memberIds String[] @map("member_ids")
   payers    Json
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
+  @@index([teamId])
   @@map("member_bookings")
 }
 
 model GuestBooking {
   id      String @id
+  teamId  String @map("team_id")
   date    String
   title   String @default("")
   guestId String @map("guest_id")
   amount  Int
   paidBy  String @map("paid_by")
+  team    Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
+  @@index([teamId])
   @@map("guest_bookings")
 }
 
 model Transfer {
   id     String  @id
+  teamId String  @map("team_id")
   date   String
   fromId String  @map("from_id")
   toId   String  @map("to_id")
   amount Int
   note   String?
+  team   Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
+  @@index([teamId])
   @@map("transfers")
 }
 

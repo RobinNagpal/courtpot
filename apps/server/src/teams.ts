@@ -3,8 +3,23 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { Action, can, canSetPin } from "@courtpot/domain";
-import { Pin, Role, RoleSchema, Team, TeamMembership, Username } from "@courtpot/schemas";
+import {
+  AuditAction,
+  AuditEntity,
+  Pin,
+  Role,
+  RoleSchema,
+  Team,
+  TeamCreate,
+  TeamEdit,
+  TeamMembership,
+  TeamPage,
+  TeamUnlockInput,
+  TeamWithPin,
+  Username,
+} from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
+import { recordAudit } from "./audit";
 import type { AuthEnv } from "./auth";
 import type { Db } from "./db";
 import { generatePin } from "./pin";
@@ -32,16 +47,99 @@ async function roleInTeam(db: Db, teamId: string, memberId: string): Promise<Rol
   return membership === null ? null : RoleSchema.parse(membership.role);
 }
 
+/**
+ * Public: no member login, just the team's PIN. Mounted before requireAuth so
+ * anyone with the PIN can open a team page.
+ */
+export function publicTeamsRouter(db: Db): Hono {
+  const router = new Hono();
+
+  router.post("/:teamId/unlock", zValidator("json", TeamUnlockInput), async (c) => {
+    const team = await db.team.findUnique({
+      where: { id: c.req.param("teamId") },
+      omit: { pin: false },
+    });
+    // Same response whether the team is missing or the PIN is wrong, so the
+    // endpoint cannot be used to enumerate team ids.
+    if (team === null || team.pin !== c.req.valid("json").pin) {
+      return c.json({ error: "Wrong team PIN" }, 401);
+    }
+    const roster = await db.teamMember.findMany({
+      where: { teamId: team.id },
+      include: { member: true },
+    });
+    return c.json(
+      TeamPage.parse({
+        team: Team.parse(team),
+        roster: roster
+          .map((row) => ({
+            memberId: row.memberId,
+            name: row.member.name,
+            role: RoleSchema.parse(row.role),
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }),
+    );
+  });
+
+  return router;
+}
+
 export function teamsRouter(db: Db): Hono<AuthEnv> {
   const router = new Hono<AuthEnv>();
 
   router.get("/", async (c) => c.json(Team.array().parse(await db.team.findMany({ orderBy: { name: "asc" } }))));
 
-  router.post("/", zValidator("json", Team), async (c) => {
+  /** Admin-only: the same list including each team's PIN, so it can be handed out. */
+  router.get("/with-pins", async (c) => {
+    if (!can(c.get("role"), Action.ManageTeams)) {
+      return c.json({ error: "Only an Admin can see team PINs" }, 403);
+    }
+    const teams = await db.team.findMany({ orderBy: { name: "asc" }, omit: { pin: false } });
+    return c.json(TeamWithPin.array().parse(teams));
+  });
+
+  /** Admin-only: rename a team, and optionally set a new PIN. */
+  router.put("/:teamId", zValidator("json", TeamEdit), async (c) => {
+    if (!can(c.get("role"), Action.ManageTeams)) {
+      return c.json({ error: "Only an Admin can edit a team" }, 403);
+    }
+    const { name, pin } = c.req.valid("json");
+    const team = Team.parse(
+      await db.team.update({
+        where: { id: c.req.param("teamId") },
+        data: pin === undefined ? { name } : { name, pin },
+      }),
+    );
+    await recordAudit(db, {
+      actorId: c.get("memberId"),
+      actorName: c.get("actorName"),
+      action: AuditAction.Update,
+      entity: AuditEntity.Team,
+      entityId: team.id,
+      // pinChanged rather than the PIN itself — recordAudit would strip it anyway.
+      row: { ...team, pinChanged: pin !== undefined },
+    });
+    return c.json(team);
+  });
+
+  router.post("/", zValidator("json", TeamCreate), async (c) => {
     if (!can(c.get("role"), Action.ManageTeams)) {
       return c.json({ error: "Only an Admin can create teams" }, 403);
     }
-    return c.json(Team.parse(await db.team.create({ data: c.req.valid("json") })), 201);
+    const body = c.req.valid("json");
+    const team = Team.parse(
+      await db.team.create({ data: { id: body.id, name: body.name, pin: body.pin ?? generatePin() } }),
+    );
+    await recordAudit(db, {
+      actorId: c.get("memberId"),
+      actorName: c.get("actorName"),
+      action: AuditAction.Create,
+      entity: AuditEntity.Team,
+      entityId: team.id,
+      row: team,
+    });
+    return c.json(team, 201);
   });
 
   router.get("/:teamId/members", async (c) => {
@@ -86,6 +184,14 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
       create: { teamId, memberId, role: body.role },
       update: { role: body.role },
     });
+    await recordAudit(db, {
+      actorId: c.get("memberId"),
+      actorName: c.get("actorName"),
+      action: AuditAction.Update,
+      entity: AuditEntity.TeamMembership,
+      entityId: `${teamId}:${memberId}`,
+      row: membership,
+    });
     return c.json(TeamMembership.parse(membership), 201);
   });
 
@@ -96,7 +202,16 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
     if (!isAdmin && (teamRole === null || !can(teamRole, Action.AddTeamMembers))) {
       return c.json({ error: "You cannot change this team" }, 403);
     }
-    await db.teamMember.delete({ where: membershipKey(teamId, c.req.param("memberId")) });
+    const memberId = c.req.param("memberId");
+    await db.teamMember.delete({ where: membershipKey(teamId, memberId) });
+    await recordAudit(db, {
+      actorId: c.get("memberId"),
+      actorName: c.get("actorName"),
+      action: AuditAction.Delete,
+      entity: AuditEntity.TeamMembership,
+      entityId: `${teamId}:${memberId}`,
+      row: { teamId, memberId },
+    });
     return c.body(null, 204);
   });
 

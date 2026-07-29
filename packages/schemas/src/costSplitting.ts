@@ -19,6 +19,7 @@ export const Member = z.object({
 
 export const Guest = z.object({
   id: z.string().uuid(),
+  teamId: z.string().uuid(),
   name: z.string().trim().min(1, "Name is required"),
   note: z.string().optional(),
 });
@@ -31,6 +32,7 @@ export const Payer = z.object({
 
 export const MemberBooking = z.object({
   id: z.string().uuid(),
+  teamId: z.string().uuid(),
   date: IsoDate,
   title: z.string().trim().default(""),
   memberIds: z.array(z.string().uuid()).min(1, "Pick at least one player"),
@@ -42,6 +44,7 @@ export const PaidBy = z.union([z.string().uuid(), z.literal("ALL")]);
 
 export const GuestBooking = z.object({
   id: z.string().uuid(),
+  teamId: z.string().uuid(),
   date: IsoDate,
   title: z.string().trim().default(""),
   guestId: z.string().uuid(),
@@ -52,6 +55,7 @@ export const GuestBooking = z.object({
 export const Transfer = z
   .object({
     id: z.string().uuid(),
+    teamId: z.string().uuid(),
     date: IsoDate,
     fromId: z.string().uuid(),
     toId: z.string().uuid(),

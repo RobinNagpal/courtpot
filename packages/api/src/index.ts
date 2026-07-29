@@ -25,3 +25,6 @@ export {
 } from "./mutations";
 export type { CollectionMutations } from "./mutations";
 export { createLedgerQueryClient } from "./queryClient";
+
+export { createTeamsApi } from "./restClient";
+export type { TeamsApi } from "./restClient";

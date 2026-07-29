@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Role } from "@courtpot/schemas";
+import { DEFAULT_TEAM_NAME } from "../src/bootstrap";
 import { createDb } from "../src/db";
 import { generatePin } from "../src/pin";
-
-const DEFAULT_TEAM = "London Badminton 40+ Smashers";
 
 /** The first regular is the Admin; the rest play. */
 const regulars: { name: string; username: string; role: Role }[] = [
@@ -18,10 +17,18 @@ const regulars: { name: string; username: string; role: Role }[] = [
 async function main(): Promise<void> {
   const db = createDb();
 
+  // The team PIN is generated, never committed. It is printed once here; use
+  // `pnpm team:add -- --name "<team>" --pin <pin>` to set a chosen one later.
+  const existingTeam = await db.team.findUnique({ where: { name: DEFAULT_TEAM_NAME } });
+  const teamPin = generatePin();
   const team =
-    (await db.team.findUnique({ where: { name: DEFAULT_TEAM } })) ??
-    (await db.team.create({ data: { id: randomUUID(), name: DEFAULT_TEAM } }));
-  console.log(`Team "${team.name}"`);
+    existingTeam ??
+    (await db.team.create({ data: { id: randomUUID(), name: DEFAULT_TEAM_NAME, pin: teamPin } }));
+  console.log(
+    existingTeam === null
+      ? `Team "${team.name}" created — page PIN ${teamPin}`
+      : `Team "${team.name}" already exists — PIN unchanged`,
+  );
 
   for (const { name, username, role } of regulars) {
     const existing = await db.member.findUnique({ where: { username } });

@@ -45,8 +45,15 @@ export interface LedgerInputResult {
   isError: boolean;
 }
 
-/** All five cached collections combined, or null while any is still loading. */
-export function useLedgerInput(): LedgerInputResult {
+/**
+ * All five cached collections combined, or null while any is still loading.
+ *
+ * `teamId` scopes the ledger: guests, bookings and transfers all belong to one
+ * team, so passing it filters the cached rows down to that team. Members are not
+ * filtered — a booking can reference any member, and balances must still name
+ * them. Omit it to combine every team.
+ */
+export function useLedgerInput(teamId?: string): LedgerInputResult {
   const members = useMembers();
   const guests = useGuests();
   const memberBookings = useMemberBookings();
@@ -61,14 +68,16 @@ export function useLedgerInput(): LedgerInputResult {
     if (!members.data || !guests.data || !memberBookings.data || !guestBookings.data || !transfers.data) {
       return null;
     }
+    const inTeam = <T extends { teamId: string }>(rows: readonly T[]): T[] =>
+      teamId === undefined ? [...rows] : rows.filter((row) => row.teamId === teamId);
     return {
       members: members.data,
-      guests: guests.data,
-      memberBookings: memberBookings.data,
-      guestBookings: guestBookings.data,
-      transfers: transfers.data,
+      guests: inTeam(guests.data),
+      memberBookings: inTeam(memberBookings.data),
+      guestBookings: inTeam(guestBookings.data),
+      transfers: inTeam(transfers.data),
     };
-  }, [members.data, guests.data, memberBookings.data, guestBookings.data, transfers.data]);
+  }, [teamId, members.data, guests.data, memberBookings.data, guestBookings.data, transfers.data]);
 
   return { input, isPending, isError };
 }
@@ -78,8 +87,8 @@ export interface BalancesResult extends LedgerInputResult {
 }
 
 /** Balances derived from the query caches — no network round-trip. */
-export function useBalances(): BalancesResult {
-  const { input, isPending, isError } = useLedgerInput();
+export function useBalances(teamId?: string): BalancesResult {
+  const { input, isPending, isError } = useLedgerInput(teamId);
   const balances = useMemo(() => (input === null ? [] : computeBalances(input)), [input]);
   return { balances, input, isPending, isError };
 }

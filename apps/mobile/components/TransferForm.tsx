@@ -6,6 +6,7 @@ import type { TransferT } from "@courtpot/schemas";
 import { Button, Input, parseDollarsToCents } from "@courtpot/ui";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
+import { useActiveTeamId } from "../lib/team";
 import { todayIsoDate } from "../lib/date";
 import { usePersonOptions } from "../lib/people";
 import { ChipGroup } from "./ChipGroup";
@@ -17,6 +18,7 @@ interface TransferFormProps {
 }
 
 export function TransferForm({ submitLabel, onSubmit }: TransferFormProps): ReactElement {
+  const teamId = useActiveTeamId();
   const people = usePersonOptions();
   const [date, setDate] = useState(todayIsoDate());
   const [fromId, setFromId] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export function TransferForm({ submitLabel, onSubmit }: TransferFormProps): Reac
     }
     const result = Transfer.safeParse({
       id: newId(),
+      teamId,
       date,
       fromId,
       toId,
