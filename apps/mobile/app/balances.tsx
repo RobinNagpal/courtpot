@@ -14,7 +14,8 @@ import {
   cardClass,
   formatCents,
 } from "@courtpot/ui";
-import { Screen } from "../../components/Screen";
+import { Screen } from "../components/Screen";
+import { useActiveTeamId } from "../lib/team";
 
 function BalanceRows({ balances }: { balances: readonly BalanceT[] }): ReactElement {
   return (
@@ -28,7 +29,9 @@ function BalanceRows({ balances }: { balances: readonly BalanceT[] }): ReactElem
 
 export default function BalancesScreen(): ReactElement {
   const router = useRouter();
-  const { balances, isPending, isError } = useBalances();
+  const teamId = useActiveTeamId();
+  // Scoped to the active team — the ledger belongs to one team.
+  const { balances, isPending, isError } = useBalances(teamId);
 
   if (isPending) {
     return <LoadingState />;
@@ -51,7 +54,7 @@ export default function BalancesScreen(): ReactElement {
       </View>
 
       {balances.length === 0 ? (
-        <EmptyState message="No people yet. Add members and guests in the People tab." />
+        <EmptyState message="No people yet. Add members and guests from the team page." />
       ) : (
         <>
           <SectionTitle label="Members" />

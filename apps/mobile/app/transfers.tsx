@@ -4,11 +4,13 @@ import { useRouter } from "expo-router";
 import { useTransferMutations, useTransfers } from "@courtpot/api";
 import type { TransferT } from "@courtpot/schemas";
 import { Button, EmptyState, ErrorState, ListItem, LoadingState, confirmAsync, formatCents } from "@courtpot/ui";
-import { Screen } from "../../components/Screen";
-import { usePersonNames } from "../../lib/people";
+import { Screen } from "../components/Screen";
+import { usePersonNames } from "../lib/people";
+import { useActiveTeamId } from "../lib/team";
 
 export default function TransfersScreen(): ReactElement {
   const router = useRouter();
+  const teamId = useActiveTeamId();
   const transfers = useTransfers();
   const { remove } = useTransferMutations();
   const names = usePersonNames();
@@ -20,7 +22,7 @@ export default function TransfersScreen(): ReactElement {
     return <ErrorState message="Could not load transfers." />;
   }
 
-  const rows = [...transfers.data].sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  const rows = transfers.data.filter((t) => t.teamId === teamId).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 
   const handleDelete = async (transfer: TransferT): Promise<void> => {
     const from = names.get(transfer.fromId) ?? "?";

@@ -4,8 +4,13 @@ import { EmptyState, SectionTitle } from "@courtpot/ui";
 import { useTeam } from "../lib/team";
 import { Screen } from "./Screen";
 
+interface TeamPickerScreenProps {
+  /** Called after a team is chosen. Omitted when this is the post-login gate. */
+  onPicked?: () => void;
+}
+
 /** Shown when a member belongs to more than one team, and from the team page. */
-export function TeamPickerScreen(): ReactElement {
+export function TeamPickerScreen({ onPicked }: TeamPickerScreenProps = {}): ReactElement {
   const { teams, activeTeamId, setActiveTeam } = useTeam();
 
   if (teams.length === 0) {
@@ -23,7 +28,10 @@ export function TeamPickerScreen(): ReactElement {
         {teams.map((team) => (
           <Pressable
             key={team.id}
-            onPress={() => setActiveTeam(team.id)}
+            onPress={() => {
+              setActiveTeam(team.id);
+              onPicked?.();
+            }}
             className={`rounded-xl border p-4 ${
               team.id === activeTeamId ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white"
             }`}

@@ -15,7 +15,7 @@ import { usePersonNames } from "../lib/people";
 export default function SettleUpScreen(): ReactElement {
   const teamId = useActiveTeamId();
   const router = useRouter();
-  const { balances, isPending, isError } = useBalances();
+  const { balances, isPending, isError } = useBalances(teamId);
   const names = usePersonNames();
   const logSettlements = useLogSettlements();
 

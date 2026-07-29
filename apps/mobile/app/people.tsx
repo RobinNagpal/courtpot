@@ -7,12 +7,12 @@ import type { LedgerInput } from "@courtpot/domain";
 import type { GuestT, MemberT } from "@courtpot/schemas";
 import { Guest, Member, MemberCreate } from "@courtpot/schemas";
 import { Button, ErrorState, Input, ListItem, LoadingState, SectionTitle, confirmAsync } from "@courtpot/ui";
-import { Screen } from "../../components/Screen";
-import { FormError } from "../../components/FormError";
-import { useAuth } from "../../lib/auth";
-import { isRemote } from "../../lib/config";
-import { firstIssueMessage } from "../../lib/forms";
-import { newId } from "../../lib/id";
+import { Screen } from "../components/Screen";
+import { FormError } from "../components/FormError";
+import { useAuth } from "../lib/auth";
+import { isRemote } from "../lib/config";
+import { firstIssueMessage } from "../lib/forms";
+import { newId } from "../lib/id";
 
 interface NamedRow {
   id: string;

@@ -11,6 +11,7 @@ import { isRemote } from "../lib/config";
 import { ledgerClient, queryPersister } from "../lib/storage";
 import { LoginScreen } from "../components/LoginScreen";
 import { TeamPickerScreen } from "../components/TeamPickerScreen";
+import { HomeButton } from "../components/HomeButton";
 
 const queryClient = createLedgerQueryClient();
 
@@ -51,8 +52,15 @@ export default function RootLayout(): ReactElement {
           <TeamProvider>
             <StatusBar style="auto" />
             <AuthGate>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              {/* Every section screen gets a home button back to the team page. */}
+              <Stack screenOptions={{ headerRight: () => <HomeButton /> }}>
+                <Stack.Screen name="index" options={{ title: "Team", headerRight: undefined }} />
+                <Stack.Screen name="balances" options={{ title: "Balances" }} />
+                <Stack.Screen name="member-bookings" options={{ title: "Member Bookings" }} />
+                <Stack.Screen name="guest-bookings" options={{ title: "Guest Bookings" }} />
+                <Stack.Screen name="transfers" options={{ title: "Transfers" }} />
+                <Stack.Screen name="people" options={{ title: "People" }} />
+                <Stack.Screen name="teams" options={{ title: "Switch team" }} />
                 <Stack.Screen name="booking/member/new" options={{ presentation: "modal", title: "New member booking" }} />
                 <Stack.Screen name="booking/guest/new" options={{ presentation: "modal", title: "New guest booking" }} />
                 <Stack.Screen name="booking/[id]" options={{ title: "Edit booking" }} />
