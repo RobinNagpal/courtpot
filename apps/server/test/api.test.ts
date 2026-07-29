@@ -270,10 +270,20 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
         members: { name: string }[];
         guests: { name: string }[];
         balances: { name: string }[];
+        memberBookings: { id: string }[];
+        guestBookings: { id: string }[];
         transfers: { id: string }[];
       };
       expect(page.team.name).toBe("Test Squad");
-      for (const list of [page.members, page.guests, page.balances, page.transfers]) {
+      // Every section the page renders must be present.
+      for (const list of [
+        page.members,
+        page.guests,
+        page.balances,
+        page.memberBookings,
+        page.guestBookings,
+        page.transfers,
+      ]) {
         expect(Array.isArray(list)).toBe(true);
       }
     });
@@ -303,6 +313,25 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
         body: JSON.stringify({ name: "Test Squad", slug: "not a slug!" }),
       });
       expect(res.status).toBe(400);
+    });
+
+    it("carries this team's bookings and no other team's", async () => {
+      // ledgerTeamId holds the rows created earlier; teamId is a different team.
+      const res = await app.request(`/api/teams/${ledgerTeamId}/unlock`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pin: "1111" }),
+      });
+      expect(res.status).toBe(200);
+      const page = (await res.json()) as {
+        memberBookings: { teamId: string }[];
+        guestBookings: { teamId: string }[];
+        transfers: { teamId?: string }[];
+      };
+      expect(page.memberBookings.length).toBeGreaterThan(0);
+      expect(page.memberBookings.every((b) => b.teamId === ledgerTeamId)).toBe(true);
+      expect(page.guestBookings.every((b) => b.teamId === ledgerTeamId)).toBe(true);
+      expect(page.transfers.length).toBeGreaterThan(0);
     });
 
     it("gives the same 401 for an unknown team as for a wrong PIN", async () => {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Pin } from "./auth";
-import { Balance, IsoDate, PositiveCents } from "./costSplitting";
+import { Balance, GuestBooking, IsoDate, MemberBooking, PositiveCents } from "./costSplitting";
 import { Role, RoleSchema } from "./roles";
 
 /**
@@ -88,6 +88,9 @@ export const TeamPage = z.object({
   members: z.array(PublicPerson),
   guests: z.array(PublicPerson),
   balances: z.array(Balance),
+  // Bookings carry no secrets — only ids already present in members/guests.
+  memberBookings: z.array(MemberBooking),
+  guestBookings: z.array(GuestBooking),
   transfers: z.array(PublicTransfer),
 });
 

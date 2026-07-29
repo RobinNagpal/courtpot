@@ -90,17 +90,19 @@ async function loadTeamPage(
   const [memberships, guests, memberBookings, guestBookings, transfers] = await Promise.all([
     db.teamMember.findMany({ where: { teamId: team.id }, include: { member: true } }),
     db.guest.findMany({ where: { teamId: team.id }, orderBy: { name: "asc" } }),
-    db.memberBooking.findMany({ where: { teamId: team.id } }),
+    db.memberBooking.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
     db.guestBooking.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
     db.transfer.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
   ]);
 
   const members = memberships.map((row) => row.member).sort((a, b) => a.name.localeCompare(b.name));
+  const parsedMemberBookings = MemberBooking.array().parse(memberBookings);
+  const parsedGuestBookings = GuestBooking.array().parse(guestBookings);
   const balances = computeBalances({
     members: Member.array().parse(members),
     guests: Guest.array().parse(guests.map((g) => ({ ...g, note: g.note ?? undefined }))),
-    memberBookings: MemberBooking.array().parse(memberBookings),
-    guestBookings: GuestBooking.array().parse(guestBookings),
+    memberBookings: parsedMemberBookings,
+    guestBookings: parsedGuestBookings,
     transfers: Transfer.array().parse(transfers.map((t) => ({ ...t, note: t.note ?? undefined }))),
   });
 
@@ -109,6 +111,8 @@ async function loadTeamPage(
     members: members.map((m) => ({ id: m.id, name: m.name })),
     guests: guests.map((g) => ({ id: g.id, name: g.name })),
     balances,
+    memberBookings: parsedMemberBookings,
+    guestBookings: parsedGuestBookings,
     transfers: transfers.map((t) => ({
       id: t.id,
       date: t.date,
