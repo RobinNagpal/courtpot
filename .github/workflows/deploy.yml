@@ -4,6 +4,7 @@
 #
 # Needs (created by deployment/terraform, values in its outputs):
 #   secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   (the courtpot-deployer user)
+#            DATABASE_URL                               (same Postgres the Lambda uses)
 #   vars:    S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID
 name: Deploy
 
@@ -69,6 +70,11 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
             --paths "/*"
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter server exec prisma migrate deploy
 
       - name: Build Lambda bundle
         run: bash deployment/scripts/build-lambda.sh

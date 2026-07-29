@@ -21,15 +21,37 @@ resource "aws_cloudfront_origin_access_control" "web" {
   signing_protocol                  = "sigv4"
 }
 
-# Rewrites extension-less paths to /index.html so client-side routes work on
-# the single-page Expo export. Deliberately a viewer-request function rather
-# than distribution-wide custom_error_responses: those would also rewrite the
-# API's 403s into the SPA page.
-resource "aws_cloudfront_function" "spa_rewrite" {
-  name    = "${var.app_name}-spa-rewrite"
+# Redirects www to the apex, and rewrites extension-less paths to
+# /index.html so client-side routes work on the single-page Expo export.
+# Deliberately a viewer-request function rather than distribution-wide
+# custom_error_responses: those would also rewrite the API's 403s into the
+# SPA page.
+resource "aws_cloudfront_function" "viewer_request" {
+  name    = "${var.app_name}-viewer-request"
   runtime = "cloudfront-js-2.0"
   publish = true
-  code    = file("${path.module}/functions/spa-rewrite.js")
+
+  code = templatefile("${path.module}/functions/viewer-request.js.tftpl", {
+    domain_name = var.domain_name
+  })
+}
+
+# HSTS, so a browser that has seen the site once never tries http again.
+resource "aws_cloudfront_response_headers_policy" "security" {
+  name = "${var.app_name}-security-headers"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = false
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "web" {
@@ -59,28 +81,37 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   default_cache_behavior {
-    target_origin_id       = local.s3_origin_id
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    compress               = true
-    cache_policy_id        = local.cache_policy_caching_optimized
+    target_origin_id           = local.s3_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.cache_policy_caching_optimized
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
 
     function_association {
       event_type   = "viewer-request"
-      function_arn = aws_cloudfront_function.spa_rewrite.arn
+      function_arn = aws_cloudfront_function.viewer_request.arn
     }
   }
 
   ordered_cache_behavior {
-    path_pattern             = "/api/*"
-    target_origin_id         = local.api_origin_id
-    viewer_protocol_policy   = "https-only"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods           = ["GET", "HEAD"]
-    compress                 = true
-    cache_policy_id          = local.cache_policy_caching_disabled
-    origin_request_policy_id = local.origin_policy_all_viewer_except_host
+    path_pattern               = "/api/*"
+    target_origin_id           = local.api_origin_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.cache_policy_caching_disabled
+    origin_request_policy_id   = local.origin_policy_all_viewer_except_host
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+
+    # Shares the function so www.<domain>/api/... redirects to the apex too;
+    # the function skips the SPA rewrite for /api/ paths.
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.viewer_request.arn
+    }
   }
 
   restrictions {

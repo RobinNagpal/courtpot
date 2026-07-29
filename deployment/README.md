@@ -12,9 +12,18 @@ courtpot.com (Route 53 → CloudFront, ACM cert)
   lifetime of the function, so nothing has to be re-wired between deploys.
   Clients never see it anyway; CloudFront serves the API on the same domain as
   the app, which also means there is no CORS in production.
+- **`www.courtpot.com` is redirect-only.** It is on the certificate and has
+  its own Route 53 alias, but a CloudFront viewer-request function answers it
+  with a `301` to `https://courtpot.com`, preserving path and query string.
+  The function is attached to *both* behaviors, so `www…/api/*` redirects too.
+  One canonical origin means no duplicate content and one cookie/session host.
+- Everything is https: the web behavior is `redirect-to-https`, `/api/*` is
+  too, and a response-headers policy sets `Strict-Transport-Security`
+  (1 year, `includeSubDomains`) so a returning browser never tries http.
 - The web build is a static single-page app (`expo export --platform web`).
-  A CloudFront function rewrites extension-less paths to `/index.html` so
-  client-side routes work on refresh.
+  The same CloudFront function rewrites extension-less paths to `/index.html`
+  so client-side routes work on refresh — `/api/*` is excluded, since those
+  paths have no dot either.
 - Postgres is **not** provisioned here — bring a connection string (Neon and
   Supabase free tiers work well) and set it as the Lambda's `DATABASE_URL`.
 
@@ -47,8 +56,13 @@ Actions**) from the Terraform outputs:
 |---|---|---|
 | Secret | `AWS_ACCESS_KEY_ID` | `terraform output deployer_access_key_id` |
 | Secret | `AWS_SECRET_ACCESS_KEY` | `terraform output -raw deployer_secret_access_key` |
+| Secret | `DATABASE_URL` | your Postgres connection string |
 | Variable | `S3_BUCKET` | `terraform output -raw web_bucket` |
 | Variable | `CLOUDFRONT_DISTRIBUTION_ID` | `terraform output -raw cloudfront_distribution_id` |
+
+`DATABASE_URL` is a secret because the workflow runs `prisma migrate deploy`
+with it before pushing new Lambda code, so a deploy that adds a migration
+applies it. It is the same connection string the Lambda itself holds.
 
 Finally point the API at your database (Terraform ignores later changes to
 the function's environment, so this survives future applies):

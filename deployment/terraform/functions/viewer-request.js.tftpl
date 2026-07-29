@@ -1,0 +1,52 @@
+// CloudFront viewer-request function, attached to every behavior.
+//
+// Two jobs, in order:
+//  1. www.${domain_name} is a redirect-only alias — send it to the apex over
+//     https with a permanent 301, preserving path and query string.
+//  2. On the web (S3) behavior, anything without a file extension is a
+//     client-side route, so serve the SPA shell. Real assets (/_expo/...,
+//     /favicon.ico, ...) all contain a dot. The /api/* behavior shares this
+//     function for the redirect, so it is explicitly excluded from the
+//     rewrite — /api/login has no dot either.
+var APEX = "${domain_name}";
+var WWW = "www.${domain_name}";
+
+function queryString(querystring) {
+  var parts = [];
+  for (var key in querystring) {
+    var param = querystring[key];
+    if (param.multiValue) {
+      for (var i = 0; i < param.multiValue.length; i++) {
+        parts.push(key + "=" + param.multiValue[i].value);
+      }
+    } else if (param.value === "") {
+      parts.push(key);
+    } else {
+      parts.push(key + "=" + param.value);
+    }
+  }
+  return parts.length ? "?" + parts.join("&") : "";
+}
+
+function handler(event) {
+  var request = event.request;
+  var host = request.headers.host ? request.headers.host.value.toLowerCase() : "";
+
+  if (host === WWW) {
+    return {
+      statusCode: 301,
+      statusDescription: "Moved Permanently",
+      headers: {
+        location: {
+          value: "https://" + APEX + request.uri + queryString(request.querystring),
+        },
+      },
+    };
+  }
+
+  if (!request.uri.includes(".") && !request.uri.startsWith("/api/")) {
+    request.uri = "/index.html";
+  }
+
+  return request;
+}
