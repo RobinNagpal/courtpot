@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "pins": "tsx src/cli/pins.ts",
+    "user:add": "tsx src/cli/addUser.ts",
     "user:test": "tsx src/cli/addTestUser.ts"
   },
   "dependencies": {

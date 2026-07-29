@@ -75,6 +75,22 @@ Three modelling choices to be aware of:
   validated by Zod on both sides of the wire, which is what keeps the untyped `Json` column
   honest.
 
+The diagram above uses **Prisma model** names. The **database** names differ: tables are
+plural `snake_case` and columns are `snake_case`, applied with `@@map` / `@map`, so no
+identifier ever needs quoting in raw SQL.
+
+| Prisma model | Postgres table | Mapped columns |
+|---|---|---|
+| `Member` | `members` | — |
+| `Guest` | `guests` | — |
+| `MemberBooking` | `member_bookings` | `memberIds` → `member_ids` |
+| `GuestBooking` | `guest_bookings` | `guestId` → `guest_id`, `paidBy` → `paid_by` |
+| `Transfer` | `transfers` | `fromId` → `from_id`, `toId` → `to_id` |
+| `AuthSession` | `auth_sessions` | `memberId` → `member_id`, `createdAt` → `created_at` |
+
+Application code only ever sees the Prisma names, so this mapping is invisible outside
+`schema.prisma` and hand-written SQL.
+
 ---
 
 ## 2. Referential integrity lives in application code

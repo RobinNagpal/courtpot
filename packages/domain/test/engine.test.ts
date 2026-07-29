@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Role } from "@courtpot/schemas";
 import type { BalanceT, GuestBookingT, GuestT, MemberBookingT, MemberT, TransferT } from "@courtpot/schemas";
 import {
   balanceStatus,
@@ -10,7 +11,12 @@ import {
 } from "../src";
 import type { LedgerInput } from "../src";
 
-const member = (id: string, name: string, active = true): MemberT => ({ id, name, active });
+const member = (id: string, name: string, active = true): MemberT => ({
+  id,
+  name,
+  active,
+  role: Role.TeamMember,
+});
 const guest = (id: string, name: string): GuestT => ({ id, name });
 
 const emptyLedger: LedgerInput = {

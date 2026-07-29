@@ -6,3 +6,4 @@ export type { Settlement } from "./settlements";
 export { balanceStatus } from "./status";
 export type { BalanceStatus } from "./status";
 export { countPersonReferences } from "./references";
+export { Action, can, canSetPin, effectiveRole } from "./permissions";

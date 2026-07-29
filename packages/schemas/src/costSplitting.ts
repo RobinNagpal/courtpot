@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Role, RoleSchema } from "./roles";
 
 /** All money is integer minor units (cents): 4800 = $48.00. */
 export const Cents = z.number().int();
@@ -12,6 +13,8 @@ export const Member = z.object({
   name: z.string().trim().min(1, "Name is required"),
   username: z.string().trim().min(1).optional(),
   active: z.boolean().default(true),
+  /** Platform role. Only `Admin` grants anything here; team roles live on the membership. */
+  role: RoleSchema.default(Role.TeamMember),
 });
 
 export const Guest = z.object({

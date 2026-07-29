@@ -2,8 +2,10 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Prisma } from "@prisma/client";
 import { Guest, GuestBooking, MemberBooking, MemberCreate, Transfer } from "@courtpot/schemas";
-import { authRouter, requireAuth, sessionRouter } from "./auth";
+import { Action } from "@courtpot/domain";
+import { authRouter, requireAuth, requireCan, sessionRouter } from "./auth";
 import { collectionRouter } from "./collections";
+import { teamsRouter } from "./teams";
 import type { Db } from "./db";
 import { ConflictError, NotFoundError } from "./errors";
 import { createStores } from "./stores";
@@ -19,6 +21,17 @@ export function createApp(db: Db): Hono {
 
   app.use("/api/*", requireAuth(db));
   app.route("/api/auth/session", sessionRouter(db));
+  app.route("/api/teams", teamsRouter(db));
+
+  // Reads stay open to any signed-in member — the app needs the whole ledger to
+  // derive balances. Only writes are gated.
+  const writeMethods = ["POST", "PUT", "DELETE"];
+  const paths = (name: string): string[] => [`/api/${name}`, `/api/${name}/*`];
+  const ledger = ["guests", "memberBookings", "guestBookings", "transfers"].flatMap(paths);
+
+  app.on(writeMethods, paths("members"), requireCan(Action.ManageMembers));
+  app.on(writeMethods, ledger, requireCan(Action.WriteLedger));
+
   app.route("/api/members", collectionRouter(MemberCreate, stores.members));
   app.route("/api/guests", collectionRouter(Guest, stores.guests));
   app.route("/api/memberBookings", collectionRouter(MemberBooking, stores.memberBookings));

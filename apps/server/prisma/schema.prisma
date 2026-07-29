@@ -1,3 +1,7 @@
+// Database naming: tables are plural snake_case, columns are snake_case
+// (@@map / @map), so no identifier ever needs quoting in raw SQL. Prisma model
+// and field names stay PascalCase/camelCase — the mapping is the only place the
+// two conventions meet.
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,44 +19,80 @@ model Member {
   // config so it can never appear in an API response.
   pin      String
   active   Boolean       @default(true)
+  // Platform role, stored as a plain string — the Role enum lives in
+  // packages/schemas, so new roles need no migration.
+  role     String        @default("TeamMember")
   sessions AuthSession[]
+  teams    TeamMember[]
+
+  @@map("members")
+}
+
+model Team {
+  id      String       @id
+  name    String       @unique
+  members TeamMember[]
+
+  @@map("teams")
+}
+
+/** A member's role in one team. The same member can hold a different role per team. */
+model TeamMember {
+  teamId   String @map("team_id")
+  memberId String @map("member_id")
+  role     String @default("TeamMemberViewer")
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, memberId])
+  @@map("team_members")
 }
 
 model Guest {
   id   String  @id
   name String  @unique
   note String?
+
+  @@map("guests")
 }
 
 model MemberBooking {
   id        String   @id
   date      String
   title     String   @default("")
-  memberIds String[]
+  memberIds String[] @map("member_ids")
   payers    Json
+
+  @@map("member_bookings")
 }
 
 model GuestBooking {
   id      String @id
   date    String
   title   String @default("")
-  guestId String
+  guestId String @map("guest_id")
   amount  Int
-  paidBy  String
+  paidBy  String @map("paid_by")
+
+  @@map("guest_bookings")
 }
 
 model Transfer {
   id     String  @id
   date   String
-  fromId String
-  toId   String
+  fromId String  @map("from_id")
+  toId   String  @map("to_id")
   amount Int
   note   String?
+
+  @@map("transfers")
 }
 
 model AuthSession {
   token     String   @id
-  memberId  String
+  memberId  String   @map("member_id")
   member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("auth_sessions")
 }

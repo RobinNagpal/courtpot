@@ -2,11 +2,14 @@ import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { LoginInput, Member } from "@courtpot/schemas";
+import { can, effectiveRole } from "@courtpot/domain";
+import type { Action } from "@courtpot/domain";
+import { LoginInput, Member, RoleSchema } from "@courtpot/schemas";
+import type { RoleT } from "@courtpot/schemas";
 import type { Db } from "./db";
 
 export interface AuthEnv {
-  Variables: { memberId: string };
+  Variables: { memberId: string; role: RoleT };
 }
 
 export function authRouter(db: Db): Hono {
@@ -32,11 +35,34 @@ export function requireAuth(db: Db): MiddlewareHandler<AuthEnv> {
   return async (c, next) => {
     const header = c.req.header("Authorization");
     const token = header?.startsWith("Bearer ") === true ? header.slice("Bearer ".length) : null;
-    const session = token === null ? null : await db.authSession.findUnique({ where: { token } });
+    const session =
+      token === null
+        ? null
+        : await db.authSession.findUnique({
+            where: { token },
+            include: { member: { include: { teams: true } } },
+          });
     if (session === null) {
       return c.json({ error: "Unauthorized" }, 401);
     }
     c.set("memberId", session.memberId);
+    c.set(
+      "role",
+      effectiveRole(
+        RoleSchema.parse(session.member.role),
+        session.member.teams.map((membership) => RoleSchema.parse(membership.role)),
+      ),
+    );
+    await next();
+  };
+}
+
+/** Gate a route on the caller's effective role. */
+export function requireCan(action: Action): MiddlewareHandler<AuthEnv> {
+  return async (c, next) => {
+    if (!can(c.get("role"), action)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
     await next();
   };
 }
