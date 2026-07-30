@@ -12,14 +12,22 @@ import {
   cardClass,
   formatCents,
 } from "@courtpot/ui";
+import { useRouter } from "expo-router";
 import { Screen } from "../components/Screen";
+import { personHref } from "../lib/personLink";
 import { useActiveTeamId } from "../lib/team";
 
 function BalanceRows({ balances }: { balances: readonly BalanceT[] }): ReactElement {
+  const router = useRouter();
   return (
     <View>
       {balances.map((balance) => (
-        <ListItem key={balance.personId} title={balance.name} right={<BalanceChip owedCents={balance.owedCents} />} />
+        <ListItem
+          key={balance.personId}
+          title={balance.name}
+          right={<BalanceChip owedCents={balance.owedCents} />}
+          onPress={() => router.push(personHref(balance.personId, balance.kind))}
+        />
       ))}
     </View>
   );

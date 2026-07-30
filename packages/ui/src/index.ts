@@ -12,5 +12,6 @@ export { ListItem } from "./components/ListItem";
 export type { ListItemProps } from "./components/ListItem";
 export { SectionTitle } from "./components/SectionTitle";
 export { Avatar, AvatarRow } from "./components/Avatar";
+export type { AvatarPerson } from "./components/Avatar";
 export { initialsFrom, tintFor } from "./initials";
 export { EmptyState, ErrorState, LoadingState } from "./components/States";

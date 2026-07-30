@@ -60,7 +60,15 @@ export default function MemberBookingsScreen(): ReactElement {
                   names.get(booking.payers[0]?.memberId ?? "") ?? "?"
                 } fronted`}
                 onPress={() => router.push(`/booking/${booking.id}`)}
-                footer={<AvatarRow names={booking.memberIds.map((id) => names.get(id) ?? "?")} />}
+                footer={
+                  <AvatarRow
+                    people={booking.memberIds.map((memberId) => ({
+                      id: memberId,
+                      name: names.get(memberId) ?? "?",
+                    }))}
+                    onPress={(memberId) => router.push(`/member/${memberId}`)}
+                  />
+                }
                 right={
                   <RowMenu
                     accessibilityLabel="Booking actions"

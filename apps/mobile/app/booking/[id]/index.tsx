@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useGuestBookings, useMemberBookings } from "@courtpot/api";
 import { memberBookingSplit } from "@courtpot/domain";
 import { guestBookingTotal } from "@courtpot/schemas";
@@ -46,6 +46,8 @@ function MemberBookingView({
   booking: MemberBookingT;
   nameOf: (id: string) => string;
 }): ReactElement {
+  const router = useRouter();
+  const toMember = (memberId: string): void => router.push(`/member/${memberId}`);
   const split = memberBookingSplit(booking);
   const total = Object.values(split).reduce((sum, share) => sum + share, 0);
   return (
@@ -61,7 +63,12 @@ function MemberBookingView({
         <Detail label="Total" value={formatCents(total)} />
         <Detail
           label={`Players (${booking.memberIds.length})`}
-          value={<AvatarRow names={booking.memberIds.map(nameOf)} />}
+          value={
+            <AvatarRow
+              people={booking.memberIds.map((memberId) => ({ id: memberId, name: nameOf(memberId) }))}
+              onPress={toMember}
+            />
+          }
         />
       </View>
 
@@ -72,6 +79,7 @@ function MemberBookingView({
             key={payer.memberId}
             title={nameOf(payer.memberId)}
             subtitle={`fronted ${formatCents(payer.amount)}`}
+            onPress={() => toMember(payer.memberId)}
           />
         ))}
       </View>
@@ -79,7 +87,12 @@ function MemberBookingView({
       <SectionTitle label="Each player owes" />
       <View>
         {Object.entries(split).map(([memberId, share]) => (
-          <ListItem key={memberId} title={nameOf(memberId)} subtitle={formatCents(share)} />
+          <ListItem
+            key={memberId}
+            title={nameOf(memberId)}
+            subtitle={formatCents(share)}
+            onPress={() => toMember(memberId)}
+          />
         ))}
       </View>
     </Screen>
@@ -95,6 +108,8 @@ function GuestBookingView({
   names: Map<string, string>;
   nameOf: (id: string) => string;
 }): ReactElement {
+  const router = useRouter();
+  const toGuest = (guestId: string): void => router.push(`/guest/${guestId}`);
   return (
     <Screen>
       <Stack.Screen
@@ -109,14 +124,24 @@ function GuestBookingView({
         <Detail label="Paid by" value={payerLabel(booking, names)} />
         <Detail
           label={`Guests (${booking.guests.length})`}
-          value={<AvatarRow names={booking.guests.map((c) => nameOf(c.guestId))} />}
+          value={
+            <AvatarRow
+              people={booking.guests.map((c) => ({ id: c.guestId, name: nameOf(c.guestId) }))}
+              onPress={toGuest}
+            />
+          }
         />
       </View>
 
       <SectionTitle label="Charged" />
       <View>
         {booking.guests.map((charge) => (
-          <ListItem key={charge.guestId} title={nameOf(charge.guestId)} subtitle={formatCents(charge.amount)} />
+          <ListItem
+            key={charge.guestId}
+            title={nameOf(charge.guestId)}
+            subtitle={formatCents(charge.amount)}
+            onPress={() => toGuest(charge.guestId)}
+          />
         ))}
       </View>
     </Screen>

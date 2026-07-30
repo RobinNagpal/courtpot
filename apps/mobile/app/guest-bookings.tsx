@@ -55,7 +55,15 @@ export default function GuestBookingsScreen(): ReactElement {
               title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
               subtitle={guestBookingSubtitle(booking, names)}
               onPress={() => router.push(`/booking/${booking.id}`)}
-              footer={<AvatarRow names={booking.guests.map((charge) => names.get(charge.guestId) ?? "?")} />}
+              footer={
+                <AvatarRow
+                  people={booking.guests.map((charge) => ({
+                    id: charge.guestId,
+                    name: names.get(charge.guestId) ?? "?",
+                  }))}
+                  onPress={(guestId) => router.push(`/guest/${guestId}`)}
+                />
+              }
               right={
                 <RowMenu
                   accessibilityLabel="Guest booking actions"

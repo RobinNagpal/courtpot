@@ -206,7 +206,7 @@ export default function PublicTeamScreen(): ReactElement {
                     key={booking.id}
                     title={booking.title === "" ? "Member booking" : booking.title}
                     subtitle={`${booking.date} · ${booking.memberIds.length} players · ${formatCents(total)} total`}
-                    footer={<AvatarRow names={booking.memberIds.map(nameOf)} />}
+                    footer={<AvatarRow people={booking.memberIds.map((mid) => ({ id: mid, name: nameOf(mid) }))} />}
                   />
                 );
               })}
@@ -227,7 +227,11 @@ export default function PublicTeamScreen(): ReactElement {
                   key={booking.id}
                   title={booking.title === "" ? `Guest: ${guestLabel(booking, names)}` : booking.title}
                   subtitle={guestBookingSubtitle(booking, names)}
-                  footer={<AvatarRow names={booking.guests.map((charge) => nameOf(charge.guestId))} />}
+                  footer={
+                    <AvatarRow
+                      people={booking.guests.map((c) => ({ id: c.guestId, name: nameOf(c.guestId) }))}
+                    />
+                  }
                 />
               ))}
             </View>
