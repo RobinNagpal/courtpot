@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { useRouter } from "expo-router";
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useGuestMutations, useLedgerInput, useMemberMutations } from "@courtpot/api";
 import { countPersonReferences } from "@courtpot/domain";
 import type { LedgerInput } from "@courtpot/domain";
-import type { GuestT, MemberT } from "@courtpot/schemas";
+import type { MemberT } from "@courtpot/schemas";
 import { Guest, Member, MemberCreate } from "@courtpot/schemas";
 import { Button, ErrorState, Input, ListItem, LoadingState, SectionTitle, confirmAsync } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
@@ -58,31 +59,13 @@ function AddPersonRow({ label, withUsername, onAdd }: AddPersonRowProps): ReactE
   );
 }
 
-interface RenameRowProps {
-  name: string;
-  onRename: (name: string) => string | null;
-}
-
-/** Inline rename, opened from the row's Edit action. */
-function RenameRow({ name, onRename }: RenameRowProps): ReactElement {
-  const [draft, setDraft] = useState(name);
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <View className="gap-2 pb-3 pl-3">
-      <Input label="Rename" value={draft} onChangeText={setDraft} />
-      <FormError message={error} />
-      <Button label="Save" variant="ghost" onPress={() => setError(onRename(draft))} />
-    </View>
-  );
-}
-
 export default function PeopleScreen(): ReactElement {
+  const router = useRouter();
   const teamId = useActiveTeamId();
   const { input, isPending, isError } = useLedgerInput(teamId);
   const { member: signedInMember, logout } = useAuth();
   const memberMutations = useMemberMutations();
   const guestMutations = useGuestMutations();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (isPending) {
     return <LoadingState />;
@@ -131,29 +114,7 @@ export default function PeopleScreen(): ReactElement {
     return null;
   };
 
-  const renameMember = (member: MemberT, name: string): string | null => {
-    if (nameTaken(name, ledger.members, member.id)) {
-      return "A member with that name already exists.";
-    }
-    const result = Member.safeParse({ ...member, name });
-    if (!result.success) {
-      return firstIssueMessage(result.error);
-    }
-    memberMutations.update.mutate(result.data);
-    return null;
-  };
 
-  const renameGuest = (guest: GuestT, name: string): string | null => {
-    if (nameTaken(name, ledger.guests, guest.id)) {
-      return "A guest with that name already exists.";
-    }
-    const result = Guest.safeParse({ ...guest, name });
-    if (!result.success) {
-      return firstIssueMessage(result.error);
-    }
-    guestMutations.update.mutate(result.data);
-    return null;
-  };
 
   const toggleActive = async (member: MemberT): Promise<void> => {
     if (member.active && activeCount === 1) {
@@ -191,14 +152,14 @@ export default function PeopleScreen(): ReactElement {
               <ListItem
                 title={member.name}
                 subtitle={memberSubtitle(member)}
-                onPress={() => setExpandedId((prev) => (prev === member.id ? null : member.id))}
+                onPress={() => router.push(`/member/${member.id}`)}
                 right={
                   <RowMenu
                     accessibilityLabel={`Actions for ${member.name}`}
                     actions={[
                       {
                         label: "Edit",
-                        onPress: () => setExpandedId((prev) => (prev === member.id ? null : member.id)),
+                        onPress: () => router.push(`/member/${member.id}/edit`),
                       },
                       {
                         label: member.active ? "Deactivate" : "Activate",
@@ -220,9 +181,6 @@ export default function PeopleScreen(): ReactElement {
                   />
                 }
               />
-              {expandedId === member.id ? (
-                <RenameRow name={member.name} onRename={(name) => renameMember(member, name)} />
-              ) : null}
             </View>
           );
         })}
@@ -241,14 +199,14 @@ export default function PeopleScreen(): ReactElement {
                 <ListItem
                   title={guest.name}
                   subtitle="Guest"
-                  onPress={() => setExpandedId((prev) => (prev === guest.id ? null : guest.id))}
+                  onPress={() => router.push(`/guest/${guest.id}`)}
                   right={
                     <RowMenu
                       accessibilityLabel={`Actions for ${guest.name}`}
                       actions={[
                         {
                           label: "Edit",
-                          onPress: () => setExpandedId((prev) => (prev === guest.id ? null : guest.id)),
+                          onPress: () => router.push(`/guest/${guest.id}/edit`),
                         },
                         {
                           label: "Delete",
@@ -264,9 +222,6 @@ export default function PeopleScreen(): ReactElement {
                     />
                   }
                 />
-                {expandedId === guest.id ? (
-                  <RenameRow name={guest.name} onRename={(name) => renameGuest(guest, name)} />
-                ) : null}
               </View>
             );
           })}

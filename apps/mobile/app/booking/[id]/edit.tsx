@@ -2,9 +2,9 @@ import type { ReactElement } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useGuestBookingMutations, useGuestBookings, useMemberBookingMutations, useMemberBookings } from "@courtpot/api";
 import { Button, ErrorState, LoadingState, confirmAsync } from "@courtpot/ui";
-import { Screen } from "../../components/Screen";
-import { MemberBookingForm } from "../../components/MemberBookingForm";
-import { GuestBookingForm } from "../../components/GuestBookingForm";
+import { Screen } from "../../../components/Screen";
+import { MemberBookingForm } from "../../../components/MemberBookingForm";
+import { GuestBookingForm } from "../../../components/GuestBookingForm";
 
 export default function EditBookingScreen(): ReactElement {
   const router = useRouter();

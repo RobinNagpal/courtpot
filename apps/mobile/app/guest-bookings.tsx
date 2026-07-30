@@ -60,7 +60,7 @@ export default function GuestBookingsScreen(): ReactElement {
                 <RowMenu
                   accessibilityLabel="Guest booking actions"
                   actions={[
-                    { label: "Edit", onPress: () => router.push(`/booking/${booking.id}`) },
+                    { label: "Edit", onPress: () => router.push(`/booking/${booking.id}/edit`) },
                     {
                       label: "Delete",
                       destructive: true,

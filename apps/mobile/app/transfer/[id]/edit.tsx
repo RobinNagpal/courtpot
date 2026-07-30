@@ -2,8 +2,8 @@ import type { ReactElement } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTransferMutations, useTransfers } from "@courtpot/api";
 import { ErrorState, LoadingState } from "@courtpot/ui";
-import { Screen } from "../../components/Screen";
-import { TransferForm } from "../../components/TransferForm";
+import { Screen } from "../../../components/Screen";
+import { TransferForm } from "../../../components/TransferForm";
 
 export default function EditTransferScreen(): ReactElement {
   const router = useRouter();

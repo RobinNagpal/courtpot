@@ -65,7 +65,7 @@ export default function MemberBookingsScreen(): ReactElement {
                   <RowMenu
                     accessibilityLabel="Booking actions"
                     actions={[
-                      { label: "Edit", onPress: () => router.push(`/booking/${booking.id}`) },
+                      { label: "Edit", onPress: () => router.push(`/booking/${booking.id}/edit`) },
                       {
                         label: "Delete",
                         destructive: true,

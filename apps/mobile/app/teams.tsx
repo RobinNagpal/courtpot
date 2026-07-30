@@ -20,7 +20,6 @@ export default function TeamsScreen(): ReactElement {
   const router = useRouter();
   const { teams, activeTeamId, defaultTeamId, setActiveTeam, markDefault, refresh } = useTeam();
   const { member } = useAuth();
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +29,6 @@ export default function TeamsScreen(): ReactElement {
     try {
       await action();
       setError(null);
-      setEditingId(null);
       setShowAdd(false);
       refresh();
     } catch (problem) {
@@ -53,10 +51,7 @@ export default function TeamsScreen(): ReactElement {
                 <ListItem
                   title={`${team.name}${team.id === activeTeamId ? " · current" : ""}`}
                   subtitle={`${team.role}${isDefault ? " · opens at login" : ""}${team.slug === null ? "" : ` · /t/${team.slug}`}`}
-                  onPress={() => {
-                    setActiveTeam(team.id);
-                    router.replace("/");
-                  }}
+                  onPress={() => router.push(`/team/${team.id}`)}
                   right={
                     <RowMenu
                       accessibilityLabel={`Actions for ${team.name}`}
@@ -83,36 +78,12 @@ export default function TeamsScreen(): ReactElement {
                               },
                             ]),
                         ...(canEdit
-                          ? [
-                              {
-                                label: "Edit",
-                                onPress: () => setEditingId((prev) => (prev === team.id ? null : team.id)),
-                              },
-                            ]
+                          ? [{ label: "Edit", onPress: () => router.push(`/team/${team.id}/edit`) }]
                           : []),
                       ]}
                     />
                   }
                 />
-                {editingId === team.id ? (
-                  <TeamEditor
-                    name={team.name}
-                    slug={team.slug}
-                    onSave={(name, pin, slug) =>
-                      run(() => {
-                        const api = teamsApi;
-                        if (api === null) {
-                          throw new Error("Teams can only be edited in server mode.");
-                        }
-                        return api.edit(team.id, {
-                          name,
-                          ...(pin === "" ? {} : { pin }),
-                          ...(slug === "" ? {} : { slug }),
-                        });
-                      })
-                    }
-                  />
-                ) : null}
               </View>
             );
           })}

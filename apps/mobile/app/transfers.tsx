@@ -44,7 +44,7 @@ export default function TransfersScreen(): ReactElement {
                   <RowMenu
                     accessibilityLabel="Transfer actions"
                     actions={[
-                      { label: "Edit", onPress: () => router.push(`/transfer/${transfer.id}`) },
+                      { label: "Edit", onPress: () => router.push(`/transfer/${transfer.id}/edit`) },
                       {
                         label: "Delete",
                         destructive: true,

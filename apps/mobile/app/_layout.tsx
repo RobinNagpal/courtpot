@@ -69,7 +69,16 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="t/[team]" options={{ title: "Team", headerLeft: undefined }} />
                 <Stack.Screen name="booking/member/new" options={{ presentation: "modal", title: "New member booking" }} />
                 <Stack.Screen name="booking/guest/new" options={{ presentation: "modal", title: "New guest booking" }} />
-                <Stack.Screen name="booking/[id]" options={{ title: "Edit booking" }} />
+                <Stack.Screen name="booking/[id]/index" options={{ title: "Booking" }} />
+                <Stack.Screen name="booking/[id]/edit" options={{ title: "Edit booking" }} />
+                <Stack.Screen name="transfer/[id]/index" options={{ title: "Transfer" }} />
+                <Stack.Screen name="transfer/[id]/edit" options={{ title: "Edit transfer" }} />
+                <Stack.Screen name="member/[id]/index" options={{ title: "Member" }} />
+                <Stack.Screen name="member/[id]/edit" options={{ title: "Edit member" }} />
+                <Stack.Screen name="guest/[id]/index" options={{ title: "Guest" }} />
+                <Stack.Screen name="guest/[id]/edit" options={{ title: "Edit guest" }} />
+                <Stack.Screen name="team/[id]/index" options={{ title: "Team" }} />
+                <Stack.Screen name="team/[id]/edit" options={{ title: "Edit team" }} />
                 <Stack.Screen name="transfer/new" options={{ presentation: "modal", title: "Record transfer" }} />
               </Stack>
             </AuthGate>
