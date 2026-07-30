@@ -16,7 +16,7 @@ export function HomeButton(): ReactElement {
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel="Team home"
-      className={headerActionClass}
+      className={`ml-3 ${headerActionClass}`}
     >
       <Ionicons name="home" size={18} color={primaryColor} />
       <Text className={headerActionTextClass}>Home</Text>

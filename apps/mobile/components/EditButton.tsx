@@ -13,7 +13,7 @@ export function EditButton({ href }: { href: string }): ReactElement {
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel="Edit"
-      className={headerActionClass}
+      className={`mr-3 ${headerActionClass}`}
     >
       <Ionicons name="pencil" size={17} color={primaryColor} />
       <Text className={headerActionTextClass}>Edit</Text>
