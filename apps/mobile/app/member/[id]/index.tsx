@@ -4,7 +4,6 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useBalances, useLedgerInput, useMemberBookings, useMembers, useTransfers } from "@courtpot/api";
 import { countPersonReferences, memberBookingSplit } from "@courtpot/domain";
 import {
-  Avatar,
   BalanceChip,
   EmptyState,
   ErrorState,
@@ -15,6 +14,7 @@ import {
 } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { EntityHeading } from "../../../components/EntityHeading";
 import { PersonTransfers } from "../../../components/PersonTransfers";
 import { EditButton } from "../../../components/EditButton";
 import { matchesMemberBooking } from "../../../lib/bookings";
@@ -57,13 +57,14 @@ export default function MemberViewScreen(): ReactElement {
   return (
     <Screen>
       <Stack.Screen
-        options={{ title: member.name, headerRight: () => <EditButton href={`/member/${member.id}/edit`} /> }}
+        options={{ title: "Member", headerRight: () => <EditButton href={`/member/${member.id}/edit`} /> }}
       />
-      <View className="items-center py-2">
-        <Avatar name={member.name} />
-      </View>
+      <EntityHeading
+        name={member.name}
+        subtitle={member.active ? "Active member" : "Inactive member"}
+        withAvatar
+      />
       <View>
-        <Detail label="Name" value={member.name} />
         <Detail label="Username" value={member.username ?? "—"} />
         <Detail label="Status" value={member.active ? "Active" : "Inactive"} />
         <Detail label="Platform role" value={member.role} />

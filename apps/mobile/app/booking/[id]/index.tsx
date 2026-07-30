@@ -8,6 +8,7 @@ import type { GuestBookingT, MemberBookingT } from "@courtpot/schemas";
 import { AvatarRow, ErrorState, ListItem, LoadingState, SectionTitle, formatCents } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { EntityHeading } from "../../../components/EntityHeading";
 import { EditButton } from "../../../components/EditButton";
 import { payerLabel } from "../../../lib/bookings";
 import { usePersonNames } from "../../../lib/people";
@@ -54,10 +55,11 @@ function MemberBookingView({
     <Screen>
       <Stack.Screen
         options={{
-          title: booking.title === "" ? "Member booking" : booking.title,
+          title: "Member booking",
           headerRight: () => <EditButton href={`/booking/${booking.id}/edit`} />,
         }}
       />
+      <EntityHeading name={booking.title === "" ? "Member booking" : booking.title} />
       <View>
         <Detail label="Date" value={booking.date} />
         <Detail label="Total" value={formatCents(total)} />
@@ -114,10 +116,11 @@ function GuestBookingView({
     <Screen>
       <Stack.Screen
         options={{
-          title: booking.title === "" ? "Guest booking" : booking.title,
+          title: "Guest booking",
           headerRight: () => <EditButton href={`/booking/${booking.id}/edit`} />,
         }}
       />
+      <EntityHeading name={booking.title === "" ? "Guest booking" : booking.title} />
       <View>
         <Detail label="Date" value={booking.date} />
         <Detail label="Total" value={formatCents(guestBookingTotal(booking))} />

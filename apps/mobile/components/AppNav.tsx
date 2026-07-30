@@ -1,9 +1,5 @@
 import type { ReactElement } from "react";
 import { usePathname, useRouter } from "expo-router";
-import { Role } from "@courtpot/schemas";
-import { useAuth } from "../lib/auth";
-import { isRemote } from "../lib/config";
-import { useTeam } from "../lib/team";
 import { NavChips } from "./NavChips";
 import type { NavIconName } from "./NavChips";
 
@@ -13,6 +9,10 @@ interface Destination {
   icon: NavIconName;
 }
 
+/**
+ * Switching team is not here: it belongs on the team home header, where it is
+ * shown only to someone who has another team or manages them.
+ */
 const DESTINATIONS: readonly Destination[] = [
   { href: "/", label: "Home", icon: "home" },
   { href: "/balances", label: "Balances", icon: "wallet-outline" },
@@ -22,8 +22,6 @@ const DESTINATIONS: readonly Destination[] = [
   { href: "/people", label: "People", icon: "people-outline" },
 ];
 
-const TEAMS: Destination = { href: "/teams", label: "Teams", icon: "swap-vertical-outline" };
-
 /**
  * One bar on every section screen listing every destination, so any page is one
  * tap from any other — including the member/guest booking cross-links.
@@ -31,15 +29,10 @@ const TEAMS: Destination = { href: "/teams", label: "Teams", icon: "swap-vertica
 export function AppNav(): ReactElement {
   const router = useRouter();
   const pathname = usePathname();
-  const { teams, activeTeam } = useTeam();
-  const { member } = useAuth();
-
-  const isAdmin = member?.role === Role.Admin || activeTeam?.role === Role.TeamMemberAdmin;
-  const destinations = isRemote && (teams.length > 1 || isAdmin) ? [...DESTINATIONS, TEAMS] : DESTINATIONS;
 
   return (
     <NavChips
-      chips={destinations.map((destination) => ({
+      chips={DESTINATIONS.map((destination) => ({
         key: destination.href,
         label: destination.label,
         icon: destination.icon,

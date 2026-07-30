@@ -58,7 +58,6 @@ export default function RootLayout(): ReactElement {
             <AuthGate>
               {/* Every section screen gets a home button back to the team page. */}
               <Stack screenOptions={{ headerLeft: () => <HomeButton /> }}>
-                <Stack.Screen name="index" options={{ title: "Team", headerLeft: undefined }} />
                 <Stack.Screen name="balances" options={{ title: "Balances" }} />
                 <Stack.Screen name="member-bookings" options={{ title: "Member Bookings" }} />
                 <Stack.Screen name="guest-bookings" options={{ title: "Guest Bookings" }} />

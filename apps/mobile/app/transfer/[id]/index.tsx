@@ -5,6 +5,7 @@ import { useTransfers } from "@courtpot/api";
 import { Avatar, ErrorState, LoadingState, formatCents } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { EntityHeading } from "../../../components/EntityHeading";
 import { EditButton } from "../../../components/EditButton";
 import { usePersonNames, usePersonOptions } from "../../../lib/people";
 import { personHref } from "../../../lib/personLink";
@@ -45,6 +46,7 @@ export default function TransferViewScreen(): ReactElement {
           headerRight: () => <EditButton href={`/transfer/${transfer.id}/edit`} />,
         }}
       />
+      <EntityHeading name={`${from} → ${to}`} />
       <View>
         <Detail label="Amount" value={formatCents(transfer.amount)} />
         <Detail label="Date" value={transfer.date} />

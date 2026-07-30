@@ -4,7 +4,6 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useBalances, useGuestBookings, useGuests, useLedgerInput, useTransfers } from "@courtpot/api";
 import { countPersonReferences } from "@courtpot/domain";
 import {
-  Avatar,
   BalanceChip,
   EmptyState,
   ErrorState,
@@ -15,6 +14,7 @@ import {
 } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { EntityHeading } from "../../../components/EntityHeading";
 import { PersonTransfers } from "../../../components/PersonTransfers";
 import { EditButton } from "../../../components/EditButton";
 import { matchesGuestBooking } from "../../../lib/bookings";
@@ -57,13 +57,10 @@ export default function GuestViewScreen(): ReactElement {
   return (
     <Screen>
       <Stack.Screen
-        options={{ title: guest.name, headerRight: () => <EditButton href={`/guest/${guest.id}/edit`} /> }}
+        options={{ title: "Guest", headerRight: () => <EditButton href={`/guest/${guest.id}/edit`} /> }}
       />
-      <View className="items-center py-2">
-        <Avatar name={guest.name} />
-      </View>
+      <EntityHeading name={guest.name} subtitle="Guest" withAvatar />
       <View>
-        <Detail label="Name" value={guest.name} />
         <Detail label="Note" value={guest.note ?? "—"} />
         <Detail
           label="Balance"

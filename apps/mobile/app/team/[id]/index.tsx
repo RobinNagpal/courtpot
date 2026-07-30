@@ -5,6 +5,7 @@ import { Role } from "@courtpot/schemas";
 import { ErrorState } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { EntityHeading } from "../../../components/EntityHeading";
 import { EditButton } from "../../../components/EditButton";
 import { useAuth } from "../../../lib/auth";
 import { useTeam } from "../../../lib/team";
@@ -27,13 +28,12 @@ export default function TeamViewScreen(): ReactElement {
     <Screen>
       <Stack.Screen
         options={{
-          title: team.name,
+          title: "Team",
           headerRight: canEdit ? () => <EditButton href={`/team/${team.id}/edit`} /> : undefined,
         }}
       />
+      <EntityHeading name={team.name} subtitle={`You are ${team.role}`} />
       <View>
-        <Detail label="Name" value={team.name} />
-        <Detail label="Your role" value={team.role} />
         <Detail label="Page address" value={team.slug === null ? "—" : `/t/${team.slug}`} />
         <Detail label="Currently viewing" value={team.id === activeTeamId ? "Yes" : "No"} />
         <Detail label="Opens at login" value={team.id === defaultTeamId ? "Yes" : "No"} />
