@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useBalances, useGuestBookings, useGuests, useLedgerInput } from "@courtpot/api";
+import { useBalances, useGuestBookings, useGuests, useLedgerInput, useTransfers } from "@courtpot/api";
 import { countPersonReferences } from "@courtpot/domain";
 import {
   Avatar,
@@ -15,8 +15,10 @@ import {
 } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
+import { PersonTransfers } from "../../../components/PersonTransfers";
 import { EditButton } from "../../../components/EditButton";
 import { matchesGuestBooking } from "../../../lib/bookings";
+import { usePersonNames } from "../../../lib/people";
 import { useActiveTeamId } from "../../../lib/team";
 
 /** Read-only detail for one guest. */
@@ -26,6 +28,8 @@ export default function GuestViewScreen(): ReactElement {
   const teamId = useActiveTeamId();
   const guests = useGuests();
   const bookings = useGuestBookings();
+  const transfers = useTransfers();
+  const names = usePersonNames();
   const { input } = useLedgerInput(teamId);
   const { balances } = useBalances(teamId);
 
@@ -45,6 +49,9 @@ export default function GuestViewScreen(): ReactElement {
   const references = input === null ? null : countPersonReferences(guest.id, input);
   const mine = (bookings.data ?? [])
     .filter((booking) => booking.teamId === teamId && matchesGuestBooking(booking, guest.id))
+    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  const theirTransfers = (transfers.data ?? [])
+    .filter((t) => t.teamId === teamId && (t.fromId === guest.id || t.toId === guest.id))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
 
   return (
@@ -86,6 +93,13 @@ export default function GuestViewScreen(): ReactElement {
           })}
         </View>
       )}
+      <SectionTitle label="Transfers" />
+      <PersonTransfers
+        personId={guest.id}
+        transfers={theirTransfers}
+        names={names}
+        onOpen={(transferId) => router.push(`/transfer/${transferId}`)}
+      />
     </Screen>
   );
 }

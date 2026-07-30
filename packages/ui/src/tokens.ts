@@ -15,3 +15,15 @@ export const balanceTextClass: Record<BalanceStatus, string> = {
 
 export const screenClass = "flex-1 bg-white dark:bg-neutral-950";
 export const cardClass = "rounded-card border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900";
+
+/**
+ * Primary blue, matching the primary Button. Exported as a hex too because icon
+ * components take a colour prop, not a class.
+ */
+export const primaryColor = "#2563eb";
+export const primaryColorDark = "#60a5fa";
+
+/** Header actions (home, edit): a tinted pill so they read as tappable. */
+export const headerActionClass =
+  "mx-1 flex-row items-center gap-1.5 rounded-lg bg-blue-50 px-3.5 py-2 active:opacity-70 dark:bg-blue-950";
+export const headerActionTextClass = "text-sm font-semibold text-blue-600 dark:text-blue-400";

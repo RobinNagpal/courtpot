@@ -1,7 +1,8 @@
 import type { ReactElement } from "react";
-import { Pressable } from "react-native";
+import { Pressable, Text } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { headerActionClass, headerActionTextClass, primaryColor } from "@courtpot/ui";
 
 /** Pencil in the header: from a view page to its edit page. */
 export function EditButton({ href }: { href: string }): ReactElement {
@@ -12,9 +13,10 @@ export function EditButton({ href }: { href: string }): ReactElement {
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel="Edit"
-      className="ml-2 rounded-lg bg-neutral-100 px-3 py-1.5 dark:bg-neutral-800"
+      className={headerActionClass}
     >
-      <Ionicons name="pencil" size={18} color="#0f172a" />
+      <Ionicons name="pencil" size={17} color={primaryColor} />
+      <Text className={headerActionTextClass}>Edit</Text>
     </Pressable>
   );
 }
