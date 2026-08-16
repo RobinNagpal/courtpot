@@ -56,4 +56,32 @@ describe("Match", () => {
     const result = Match.safeParse(doubles({ playedAt: "2026-08-16" }));
     expect(result.success).toBe(false);
   });
+
+  it("rejects the same person written in a different case", () => {
+    // Both spellings pass z.string().uuid(), so without normalising, one player
+    // fills two slots and every id comparison in the app misses one of them.
+    const result = Match.safeParse(doubles({ sideB: { playerIds: [ADA.toUpperCase(), DEE], points: 18 } }));
+    expect(result.success).toBe(false);
+  });
+
+  it("lowercases every id, so one person is one string", () => {
+    const parsed = Match.parse(
+      doubles({ sideA: { playerIds: [ADA.toUpperCase(), BO], points: 21 } }),
+    );
+    expect(parsed.sideA.playerIds).toEqual([ADA, BO]);
+  });
+
+  it("pins playedAt to a precision that sorts chronologically", () => {
+    // '…00Z' sorts after '…00.500Z' but is earlier in time, so ordering rows by
+    // the raw string is only safe while every row has the same shape.
+    for (const loose of ["2026-08-16T14:30:00Z", "2026-08-16T14:30:00.5Z", "2026-08-16T14:30:00.123456789Z"]) {
+      expect(Match.safeParse(doubles({ playedAt: loose })).success).toBe(false);
+    }
+    expect(Match.safeParse(doubles({ playedAt: "2026-08-16T14:30:00.000Z" })).success).toBe(true);
+  });
+
+  it("rejects a score that would overflow the points column", () => {
+    const huge = doubles({ sideA: { playerIds: [ADA, BO], points: 3_000_000_000 } });
+    expect(Match.safeParse(huge).success).toBe(false);
+  });
 });

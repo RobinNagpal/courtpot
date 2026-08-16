@@ -28,7 +28,11 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testUrl;
-    execSync("npx prisma db push --skip-generate", {
+    // The real migrations, not `db push`: Prisma cannot model CHECK constraints,
+    // so `db push` would hand the tests a weaker schema than production runs on.
+    // `deploy` rather than `reset` because it only ever adds — it needs an empty
+    // or already-migrated database, which is what a test database should be.
+    execSync("npx prisma migrate deploy", {
       stdio: "pipe",
       env: { ...process.env, DATABASE_URL: testUrl },
     });
@@ -250,6 +254,40 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
         teamId: ledgerTeamId,
         sideAPoints: 15,
       });
+    });
+
+    it("refuses a match naming somebody who does not exist", async () => {
+      // No foreign key can cover a player id, so the check is the server's job.
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [randomUUID(), dee], points: 18 } }),
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it("names the column that collided instead of guessing", async () => {
+      const id = randomUUID();
+      await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      const res = await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "A row with that id already exists" });
+    });
+
+    it("counts a player's matches without parsing every row", async () => {
+      // One unreadable match must not break deleting an unrelated person.
+      await db.$executeRawUnsafe(
+        `INSERT INTO matches (id, team_id, played_at, side_a_player_1, side_a_points, side_b_player_1, side_b_points)
+         VALUES ($1, $2, 'not-an-instant', $3, 1, $4, 2)`,
+        randomUUID(),
+        ledgerTeamId,
+        randomUUID(),
+        randomUUID(),
+      );
+      const bystander = randomUUID();
+      await db.guest.create({ data: { id: bystander, teamId: ledgerTeamId, name: "Bystander" } });
+      const res = await app.request(`/api/guests/${bystander}`, authed("DELETE"));
+      expect(res.status).toBe(204);
+      await db.match.deleteMany({ where: { playedAt: "not-an-instant" } });
     });
 
     it("rejects a draw", async () => {

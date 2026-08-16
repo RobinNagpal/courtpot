@@ -8,8 +8,9 @@ import type { MatchSideT, MatchT } from "@courtpot/schemas";
  * leaves the ids queryable without digging through JSON.
  *
  * There is deliberately no foreign key on a player. An id names a member or a
- * guest, and a Postgres reference points at exactly one table; deletes are
- * guarded in application code instead, exactly as they are for transfers.
+ * guest, and a Postgres reference points at exactly one table, so the checks a
+ * foreign key would give are done in application code on both sides: inserts go
+ * through assertPlayersExist, deletes through assertUnreferenced.
  */
 export interface MatchRow {
   id: string;

@@ -155,8 +155,9 @@ model Transfer {
 model Match {
   id           String  @id
   teamId       String  @map("team_id")
-  // ISO-8601 UTC instant. TEXT rather than a timestamp so the row round-trips
-  // through JSON unchanged; the format sorts lexically, so ordering still holds.
+  // ISO-8601 UTC instant, TEXT rather than a timestamp so the row round-trips
+  // through JSON unchanged. Ordering by it is chronological only because the Zod
+  // schema pins the format to exactly three fractional digits.
   playedAt     String  @map("played_at")
   sideAPlayer1 String  @map("side_a_player_1")
   sideAPlayer2 String? @map("side_a_player_2")
@@ -167,8 +168,10 @@ model Match {
   team         Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+  // Every list and the public page order by this.
+  @@index([playedAt])
   // One index per slot: "every match this person played" is the query this
-  // shape exists to serve.
+  // shape exists to serve — see countMatchesWithPlayer in stores.ts.
   @@index([sideAPlayer1])
   @@index([sideAPlayer2])
   @@index([sideBPlayer1])

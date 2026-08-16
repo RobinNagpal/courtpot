@@ -19,14 +19,3 @@ export function scoreLabel(match: MatchT): string {
 export function matchesPerson(match: MatchT, personId: string): boolean {
   return matchPlayerIds(match).includes(personId);
 }
-
-/**
- * A ranked pair's names, alphabetically. The ids are held sorted so the pair has
- * one identity, but that order is UUID order, which reads as random.
- */
-export function pairLabel(playerIds: readonly string[], nameOf: NameOf): string {
-  return playerIds
-    .map(nameOf)
-    .sort((a, b) => a.localeCompare(b))
-    .join(" & ");
-}

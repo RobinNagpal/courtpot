@@ -13,9 +13,10 @@
 -- application code instead (countMatchReferences), exactly as they already are
 -- for transfers, whose from_id/to_id have the same problem.
 --
--- played_at is TEXT holding an ISO-8601 UTC instant rather than a timestamp: the
--- row round-trips through JSON unchanged, and the format sorts lexically, so
--- ORDER BY played_at is still chronological.
+-- played_at is TEXT holding an ISO-8601 UTC instant rather than a timestamp, so
+-- the row round-trips through JSON unchanged. ORDER BY played_at is chronological
+-- only because the Zod schema pins the format to exactly three fractional digits:
+-- '…:00Z' and '…:00.5Z' would sort against '…:00.500Z' in the wrong order.
 
 CREATE TABLE "matches" (
     "id" TEXT NOT NULL,
@@ -32,6 +33,7 @@ CREATE TABLE "matches" (
 );
 
 CREATE INDEX "matches_team_id_idx" ON "matches"("team_id");
+CREATE INDEX "matches_played_at_idx" ON "matches"("played_at");
 CREATE INDEX "matches_side_a_player_1_idx" ON "matches"("side_a_player_1");
 CREATE INDEX "matches_side_a_player_2_idx" ON "matches"("side_a_player_2");
 CREATE INDEX "matches_side_b_player_1_idx" ON "matches"("side_b_player_1");

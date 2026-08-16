@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Uuid } from "./ids";
 
 /** Which half of a match. */
 export enum Side {
@@ -7,6 +8,12 @@ export enum Side {
 }
 
 export const SideSchema = z.nativeEnum(Side);
+
+/** No racquet sport scores anywhere near this; the point is to stay inside INTEGER. */
+const MAX_POINTS = 10_000;
+
+/** A side is one player or two; nothing bigger is a match. */
+export const MAX_PLAYERS_PER_SIDE = 2;
 
 /** Doubles is what gets played, so it is what the form starts on. */
 export const PLAYERS_PER_SIDE_DEFAULT = 2;
@@ -19,21 +26,28 @@ export const PLAYERS_PER_SIDE_DEFAULT = 2;
  * tables, so which kind it is can be looked up rather than stored.
  */
 export const MatchSide = z.object({
-  playerIds: z.array(z.string().uuid()).min(1, "Pick every player").max(PLAYERS_PER_SIDE_DEFAULT),
-  /** Match points this side scored. */
-  points: z.number().int().nonnegative("Points cannot be negative"),
+  playerIds: z.array(Uuid).min(1, "Pick every player").max(MAX_PLAYERS_PER_SIDE),
+  /**
+   * Match points this side scored. Capped well above any real score but well
+   * below `INTEGER`, so a fat-fingered number is a 400 and never an overflow.
+   */
+  points: z.number().int().nonnegative("Points cannot be negative").max(MAX_POINTS, "That score is too high"),
 });
 
 export const Match = z
   .object({
-    id: z.string().uuid(),
-    teamId: z.string().uuid(),
+    id: Uuid,
+    teamId: Uuid,
     /**
-     * ISO-8601 UTC instant, e.g. 2026-08-16T14:30:00.000Z. A string rather than a
-     * timestamp so the row survives the JSON round-trip unchanged; the format
-     * sorts lexically, so ordering by it is still ordering by time.
+     * ISO-8601 UTC instant, e.g. 2026-08-16T14:30:00.000Z.
+     *
+     * A string rather than a timestamp so the row survives the JSON round-trip
+     * unchanged, and pinned to exactly three fractional digits — which is what
+     * makes `ORDER BY played_at` chronological. Bare `.datetime()` also accepts
+     * `…:00Z` and `…:00.5Z`, and those sort against `…:00.500Z` in the wrong
+     * order, so the precision is the whole guarantee.
      */
-    playedAt: z.string().datetime(),
+    playedAt: z.string().datetime({ precision: 3 }),
     sideA: MatchSide,
     sideB: MatchSide,
   })

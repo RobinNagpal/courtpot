@@ -48,7 +48,9 @@ export default function MemberViewScreen(): ReactElement {
 
   const teamMatches = (matches.data ?? []).filter((match) => match.teamId === teamId);
   const balance = balances.find((row) => row.personId === member.id);
-  const references = input === null ? null : countReferences(member.id, input, teamMatches);
+  // Null until both are in — a half-loaded count would understate it.
+  const references =
+    input === null || matches.data === undefined ? null : countReferences(member.id, input, teamMatches);
   const mine = (bookings.data ?? [])
     .filter((booking) => booking.teamId === teamId && matchesMemberBooking(booking, member.id))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));

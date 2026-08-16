@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { AuditEntity, Guest, GuestBooking, Match, MemberBooking, MemberCreate, Transfer } from "@courtpot/schemas";
 import { Action } from "@courtpot/domain";
 import { listAuditLog } from "./audit";
@@ -10,6 +11,19 @@ import { publicTeamsRouter, teamsRouter } from "./teams";
 import type { Db } from "./db";
 import { ConflictError, NotFoundError } from "./errors";
 import { createStores } from "./stores";
+
+/** P2002 reports the columns that collided; naming them beats guessing. */
+const UniqueViolation = z.object({ target: z.array(z.string()) });
+
+function uniqueMessage(error: Prisma.PrismaClientKnownRequestError): string {
+  const parsed = UniqueViolation.safeParse(error.meta);
+  if (!parsed.success) {
+    return "That value is already taken";
+  }
+  return parsed.data.target.includes("id")
+    ? "A row with that id already exists"
+    : `That ${parsed.data.target.join(" and ")} is already taken`;
+}
 
 export function createApp(db: Db): Hono {
   const stores = createStores(db);
@@ -63,11 +77,23 @@ export function createApp(db: Db): Hono {
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2002") {
-        return c.json({ error: "That name or username is already taken" }, 409);
+        return c.json({ error: uniqueMessage(error) }, 409);
+      }
+      if (error.code === "P2003") {
+        return c.json({ error: "That row points at something that does not exist" }, 400);
       }
       if (error.code === "P2025") {
         return c.json({ error: "Row not found" }, 404);
       }
+    }
+    // A CHECK constraint only fires on a row the Zod schema should already have
+    // refused, so it is a bad request rather than a server fault. Prisma raises
+    // these as "unknown", with no code to match on.
+    if (
+      error instanceof Prisma.PrismaClientUnknownRequestError &&
+      error.message.includes("violates check constraint")
+    ) {
+      return c.json({ error: "The database rejected that row" }, 400);
     }
     console.error(error);
     return c.json({ error: "Internal server error" }, 500);

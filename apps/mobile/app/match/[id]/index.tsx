@@ -10,16 +10,15 @@ import { EntityHeading } from "../../../components/EntityHeading";
 import { EditButton } from "../../../components/EditButton";
 import { formatDateTime } from "../../../lib/date";
 import { matchTitle, scoreLabel, sideLabel } from "../../../lib/matches";
-import { usePersonNames, usePersonOptions } from "../../../lib/people";
-import { personHref } from "../../../lib/personLink";
+import { usePersonHref, usePersonNames } from "../../../lib/people";
 
 /** Read-only detail for one match. The pencil leads to the form. */
 export default function MatchViewScreen(): ReactElement {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const matches = useMatches();
-  const people = usePersonOptions();
   const names = usePersonNames();
+  const hrefFor = usePersonHref();
 
   if (matches.isPending) {
     return <LoadingState />;
@@ -35,8 +34,12 @@ export default function MatchViewScreen(): ReactElement {
 
   const nameOf = (personId: string): string => names.get(personId) ?? "?";
   const winner = matchWinner(match);
+  // Unknown people are not tappable, rather than routed to the wrong page.
   const toPerson = (personId: string): void => {
-    router.push(personHref(personId, people.find((person) => person.id === personId)?.kind ?? "member"));
+    const href = hrefFor(personId);
+    if (href !== null) {
+      router.push(href);
+    }
   };
 
   const players = (side: Side): ReactElement => (

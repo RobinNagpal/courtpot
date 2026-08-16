@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
@@ -21,11 +21,12 @@ import {
 import { Screen } from "../../components/Screen";
 import { FormError } from "../../components/FormError";
 import { NavChips } from "../../components/NavChips";
+import { PairRankingRows } from "../../components/PairRankingRows";
 import type { NavIconName } from "../../components/NavChips";
 import { useAuth } from "../../lib/auth";
 import { guestBookingSubtitle, guestLabel } from "../../lib/bookings";
 import { formatDateTime } from "../../lib/date";
-import { matchTitle, pairLabel, scoreLabel } from "../../lib/matches";
+import { matchTitle, scoreLabel } from "../../lib/matches";
 import { publicTeamApi, teamsApi } from "../../lib/storage";
 import { clearTeamPin, readTeamPin, saveTeamPin } from "../../lib/teamPin";
 
@@ -302,28 +303,13 @@ export default function PublicTeamScreen(): ReactElement {
 
 /** Pair standings, derived here from the matches the page already carries. */
 function Rankings({ matches, nameOf }: { matches: readonly MatchT[]; nameOf: (id: string) => string }): ReactElement {
-  const rankings = computePairRankings(matches);
+  // Sections switch in local state, so without this every keystroke elsewhere on
+  // the page would re-tally every match.
+  const rankings = useMemo(() => computePairRankings(matches), [matches]);
   return (
     <>
       <SectionTitle label="Pair rankings" />
-      {rankings.length === 0 ? (
-        <EmptyState message="No doubles matches yet." />
-      ) : (
-        <View>
-          {rankings.map((pair) => (
-            <ListItem
-              key={pair.key}
-              title={pairLabel(pair.playerIds, nameOf)}
-              subtitle={`${pair.won}W · ${pair.lost}L · ${pair.played} played`}
-              right={
-                <Text className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-                  {`${Math.round(pair.winRate * 100)}%`}
-                </Text>
-              }
-            />
-          ))}
-        </View>
-      )}
+      <PairRankingRows rankings={rankings} nameOf={nameOf} empty="No doubles matches yet." />
     </>
   );
 }

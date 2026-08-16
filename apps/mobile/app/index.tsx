@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { Role } from "@courtpot/schemas";
-import { Button, cardClass } from "@courtpot/ui";
+import { Button, SectionTitle, cardClass } from "@courtpot/ui";
 import { Screen } from "../components/Screen";
 import { MenuList } from "../components/MenuList";
 import type { MenuEntry } from "../components/MenuList";
@@ -45,8 +45,10 @@ export default function TeamHomeScreen(): ReactElement {
         </Text>
       </View>
 
+      <SectionTitle label="Ledger" />
       <MenuList entries={MENU} />
 
+      <SectionTitle label="Team" />
       <Button label="People" variant="ghost" onPress={() => router.push("/people")} />
       {isRemote ? (
         <Button

@@ -39,8 +39,18 @@ export function localDateTimeTextToIso(text: string): string | null {
   }
   const [, year, month, day, hour, minute] = parts;
   const at = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-  // Catches a date that rolled over, like 2026-02-31 landing on 3 March.
-  if (Number.isNaN(at.getTime()) || at.getDate() !== Number(day)) {
+  // Every field has to survive the trip. `new Date` silently rolls anything out
+  // of range forward — month 13 becomes next January, minute 99 becomes the next
+  // hour — so reading each one back is the only way to reject it. This also
+  // catches a local time that does not exist, such as an hour skipped by a
+  // daylight-saving jump, which Date moves rather than refuses.
+  const rolled =
+    at.getFullYear() !== Number(year) ||
+    at.getMonth() !== Number(month) - 1 ||
+    at.getDate() !== Number(day) ||
+    at.getHours() !== Number(hour) ||
+    at.getMinutes() !== Number(minute);
+  if (Number.isNaN(at.getTime()) || rolled) {
     return null;
   }
   return at.toISOString();
@@ -49,6 +59,10 @@ export function localDateTimeTextToIso(text: string): string | null {
 /** A stored instant read back in the device's zone: "16 Aug 2026, 14:30". */
 export function formatDateTime(iso: string): string {
   const at = new Date(iso);
+  // An unreadable instant is exactly where a dash beats "NaN NaN, NaN:NaN".
+  if (Number.isNaN(at.getTime())) {
+    return "—";
+  }
   const month = MONTHS[at.getMonth()] ?? "";
   return `${at.getDate()} ${month} ${at.getFullYear()}, ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }

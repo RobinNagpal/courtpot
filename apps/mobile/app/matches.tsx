@@ -10,8 +10,7 @@ import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
 import { formatDateTime } from "../lib/date";
 import { matchTitle, matchesPerson, scoreLabel } from "../lib/matches";
-import { usePersonNames, usePersonOptions } from "../lib/people";
-import { personHref } from "../lib/personLink";
+import { usePersonHref, usePersonNames, usePersonOptions } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
 export default function MatchesScreen(): ReactElement {
@@ -21,6 +20,7 @@ export default function MatchesScreen(): ReactElement {
   const { remove } = useMatchMutations();
   const people = usePersonOptions();
   const names = usePersonNames();
+  const hrefFor = usePersonHref();
   const [personFilter, setPersonFilter] = useState<string | null>(null);
 
   const rows = useMemo(() => {
@@ -64,9 +64,14 @@ export default function MatchesScreen(): ReactElement {
               footer={
                 <AvatarRow
                   people={matchPlayerIds(match).map((personId) => ({ id: personId, name: nameOf(personId) }))}
-                  onPress={(personId) =>
-                    router.push(personHref(personId, people.find((p) => p.id === personId)?.kind ?? "member"))
-                  }
+                  onPress={(personId) => {
+                    // Nothing happens for somebody we cannot identify, rather
+                    // than a confident jump to the wrong kind of page.
+                    const href = hrefFor(personId);
+                    if (href !== null) {
+                      router.push(href);
+                    }
+                  }}
                 />
               }
               right={

@@ -68,10 +68,12 @@ export default function PeopleScreen(): ReactElement {
   const guestMutations = useGuestMutations();
   const matches = useMatches();
 
-  if (isPending) {
+  // Matches feed the delete guard, so a delete must not be offered until they
+  // have loaded: an empty list reads as "nobody has played" and unblocks it.
+  if (isPending || matches.isPending) {
     return <LoadingState />;
   }
-  if (isError || input === null) {
+  if (isError || matches.isError || input === null) {
     return <ErrorState message="Could not load people." />;
   }
   const ledger: LedgerInput = input;

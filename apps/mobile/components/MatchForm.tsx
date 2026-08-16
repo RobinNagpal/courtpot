@@ -14,11 +14,13 @@ import { FormError } from "./FormError";
 
 /**
  * Four slots laid out as they read on court: 0 & 1 make up one side, 2 & 3 the
- * other. Singles hides the second slot of each side rather than reshaping the
- * array, so switching back restores whoever was already picked.
+ * other. Singles keeps the array shape and hides the second slot of each side —
+ * and empties it, so what is on screen is the whole of the state.
  */
 const SIDE_A_SLOTS = [0, 1];
 const SIDE_B_SLOTS = [2, 3];
+/** The second slot of each side — present only in doubles. */
+const HIDDEN_IN_SINGLES = [1, 3];
 const SLOT_LABELS = ["P1", "P2", "P3", "P4"];
 
 type PlayersPerSide = 1 | 2;
@@ -55,6 +57,21 @@ export function MatchForm({ initial, submitLabel, onSubmit }: MatchFormProps): R
   // Which slot's picker is open. Only one at a time, so the list stays short.
   const [openSlot, setOpenSlot] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Singles hides the second slot of each side. Clearing them on the way is what
+   * keeps the form honest: left in place they are invisible, so the picker's
+   * "already on court" exclusion cannot see them and would offer somebody who is
+   * still parked there — and switching back would show a player the user never
+   * picked twice.
+   */
+  const setFormat = (perSide: PlayersPerSide): void => {
+    setPlayersPerSide(perSide);
+    setOpenSlot(null);
+    if (perSide === 1) {
+      setSlots((prev) => prev.map((personId, index) => (HIDDEN_IN_SINGLES.includes(index) ? null : personId)));
+    }
+  };
 
   const usedSlots = (side: readonly number[]): number[] => side.slice(0, playersPerSide);
   const activeSlots = [...usedSlots(SIDE_A_SLOTS), ...usedSlots(SIDE_B_SLOTS)];
@@ -148,23 +165,26 @@ export function MatchForm({ initial, submitLabel, onSubmit }: MatchFormProps): R
         label={`Who is ${SLOT_LABELS[slot]}?`}
         options={people
           .filter((person) => !taken.includes(person.id))
-          .map((person) => ({ id: person.id, label: person.name }))}
+          .map((person) => ({
+            id: person.id,
+            label: person.kind === "guest" ? `${person.name} (guest)` : person.name,
+          }))}
         selectedIds={personId === null ? [] : [personId]}
         onToggle={(picked) => pick(slot, personId === picked ? null : picked)}
       />
     );
   };
 
-  const sideName = (side: readonly number[]): string => {
+  const sideName = (side: readonly number[], label: string): string => {
     const names = playerIdsFor(side).map(nameOf);
-    return names.length === 0 ? "this side" : names.join(" & ");
+    return names.length === 0 ? label : names.join(" & ");
   };
 
   return (
     <View className="gap-4">
       <View className="flex-row gap-2">
-        <Chip label="Doubles" selected={playersPerSide === 2} onPress={() => setPlayersPerSide(2)} />
-        <Chip label="Singles" selected={playersPerSide === 1} onPress={() => setPlayersPerSide(1)} />
+        <Chip label="Doubles" selected={playersPerSide === 2} onPress={() => setFormat(2)} />
+        <Chip label="Singles" selected={playersPerSide === 1} onPress={() => setFormat(1)} />
       </View>
 
       <View className="gap-2">
@@ -185,14 +205,14 @@ export function MatchForm({ initial, submitLabel, onSubmit }: MatchFormProps): R
 
       <SectionTitle label="Result" />
       <Input
-        label={`Points for ${sideName(SIDE_A_SLOTS)}`}
+        label={`Points for ${sideName(SIDE_A_SLOTS, "side A")}`}
         value={pointsA}
         onChangeText={setPointsA}
         placeholder="0"
         keyboardType="number-pad"
       />
       <Input
-        label={`Points for ${sideName(SIDE_B_SLOTS)}`}
+        label={`Points for ${sideName(SIDE_B_SLOTS, "side B")}`}
         value={pointsB}
         onChangeText={setPointsB}
         placeholder="0"
