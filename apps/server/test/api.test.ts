@@ -211,6 +211,47 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(res.status).toBe(409);
     });
 
+    it("round-trips a singles match through the nullable player columns", async () => {
+      const id = randomUUID();
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({
+          id,
+          sideA: { playerIds: [aliceId], points: 11 },
+          sideB: { playerIds: [cy], points: 15 },
+        }),
+      });
+      expect(res.status).toBe(201);
+      // Stored flat: the second slot of each side is null for singles.
+      const stored = await db.match.findUnique({ where: { id } });
+      expect(stored).toMatchObject({
+        sideAPlayer1: aliceId,
+        sideAPlayer2: null,
+        sideBPlayer1: cy,
+        sideBPlayer2: null,
+      });
+      // Read back nested, with one player a side rather than an empty slot.
+      const listed = (await (await app.request("/api/matches", authed())).json()) as MatchT[];
+      expect(listed.find((match) => match.id === id)).toMatchObject({
+        sideA: { playerIds: [aliceId], points: 11 },
+        sideB: { playerIds: [cy], points: 15 },
+      });
+    });
+
+    it("edits a match without losing its team", async () => {
+      const id = randomUUID();
+      await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      const res = await app.request(`/api/matches/${id}`, {
+        ...authed("PUT"),
+        body: doubles({ id, sideA: { playerIds: [aliceId, bo], points: 15 } }),
+      });
+      expect(res.status).toBe(200);
+      expect(await db.match.findUnique({ where: { id } })).toMatchObject({
+        teamId: ledgerTeamId,
+        sideAPoints: 15,
+      });
+    });
+
     it("rejects a draw", async () => {
       const res = await app.request("/api/matches", {
         ...authed("POST"),

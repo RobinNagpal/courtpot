@@ -59,8 +59,12 @@ erDiagram
     MATCH {
         string id PK
         string playedAt "ISO-8601 UTC instant as text"
-        json sideA "{playerIds: [...], points} — one or two players"
-        json sideB "the other side, always the same size"
+        string sideAPlayer1 "member or guest id — no FK, see below"
+        string sideAPlayer2 "nullable; null on both sides means singles"
+        int sideAPoints "match points, not cents"
+        string sideBPlayer1
+        string sideBPlayer2 "nullable"
+        int sideBPoints
     }
 
     AUTHSESSION {
@@ -97,7 +101,7 @@ identifier ever needs quoting in raw SQL.
 | `MemberBooking` | `member_bookings` | `memberIds` → `member_ids` |
 | `GuestBooking` | `guest_bookings` | `guestId` → `guest_id`, `paidBy` → `paid_by` |
 | `Transfer` | `transfers` | `fromId` → `from_id`, `toId` → `to_id` |
-| `Match` | `matches` | `playedAt` → `played_at`, `sideA` → `side_a`, `sideB` → `side_b` |
+| `Match` | `matches` | `playedAt` → `played_at`, `sideAPlayer1` → `side_a_player_1`, … |
 | `AuthSession` | `auth_sessions` | `memberId` → `member_id`, `createdAt` → `created_at` |
 
 Application code only ever sees the Prisma names, so this mapping is invisible outside
@@ -135,8 +139,8 @@ flowchart TD
     GB -.->|"paidBy = 'ALL' → split across active members"| M
     T -.->|"fromId / toId"| M
     T -.->|"fromId / toId"| G
-    MA -.->|"sideA/sideB playerIds[]"| M
-    MA -.->|"sideA/sideB playerIds[]"| G
+    MA -.->|"side_[ab]_player_[12]"| M
+    MA -.->|"side_[ab]_player_[12]"| G
 
     guard["countPersonReferences(personId, ledger)<br/>+ countMatchReferences(personId, matches)<br/>packages/domain/src/references.ts"]
     guard ==>|"> 0 → 409 Conflict, delete refused"| rows
@@ -158,8 +162,16 @@ grey out a delete before the user tries it.
 
 The trade-off is deliberate but real — `Transfer.fromId` can point at either a `Member` or a
 `Guest`, which no single FK can express, and `paidBy` can be the sentinel `"ALL"` rather than
-any id at all. The cost is that nothing but application code stops an orphaned row, and the
-integrity check is O(whole ledger) per delete.
+any id at all. `Match` has the same shape of problem: a player slot names a member or a guest,
+so it carries no FK either. The cost is that nothing but application code stops an orphaned
+row, and the integrity check is O(whole ledger) per delete.
+
+What *is* enforced in the database is everything that does not cross tables. Because a match
+is stored as columns rather than a JSON blob, `matches` carries four CHECK constraints —
+sides of equal size, no draw, non-negative points, and nobody playing twice — mirroring the
+Zod refinements at the only layer that cannot be bypassed. They live in the migration alone:
+Prisma does not model CHECK constraints, so `prisma migrate diff` neither generates nor
+notices them.
 
 ---
 

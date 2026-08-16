@@ -145,20 +145,34 @@ model Transfer {
 /**
  * One played match. Standalone: it settles no money and references no booking,
  * so nothing in the ledger depends on it.
+ *
+ * Each side is a first player plus a nullable second, so singles is "both
+ * player_2 are null". Columns rather than JSON, so the ids stay queryable and
+ * the database can enforce the same rules Zod does — see the migration's CHECK
+ * constraints. A player id names a member or a guest, so it carries no foreign
+ * key: a Postgres reference points at exactly one table.
  */
 model Match {
-  id       String @id
-  teamId   String @map("team_id")
+  id           String  @id
+  teamId       String  @map("team_id")
   // ISO-8601 UTC instant. TEXT rather than a timestamp so the row round-trips
   // through JSON unchanged; the format sorts lexically, so ordering still holds.
-  playedAt String @map("played_at")
-  // { playerIds: [...], points } each. A player id belongs to a member or a
-  // guest — both are UUIDs, so the side does not record which.
-  sideA    Json   @map("side_a")
-  sideB    Json   @map("side_b")
-  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playedAt     String  @map("played_at")
+  sideAPlayer1 String  @map("side_a_player_1")
+  sideAPlayer2 String? @map("side_a_player_2")
+  sideAPoints  Int     @map("side_a_points")
+  sideBPlayer1 String  @map("side_b_player_1")
+  sideBPlayer2 String? @map("side_b_player_2")
+  sideBPoints  Int     @map("side_b_points")
+  team         Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+  // One index per slot: "every match this person played" is the query this
+  // shape exists to serve.
+  @@index([sideAPlayer1])
+  @@index([sideAPlayer2])
+  @@index([sideBPlayer1])
+  @@index([sideBPlayer2])
   @@map("matches")
 }
 

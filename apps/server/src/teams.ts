@@ -8,7 +8,6 @@ import {
   AuditEntity,
   Guest,
   GuestBooking,
-  Match,
   Member,
   MemberBooking,
   Pin,
@@ -26,6 +25,7 @@ import {
 } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
 import { recordAudit } from "./audit";
+import { toMatch } from "./matchRows";
 import type { AuthEnv } from "./auth";
 import type { Db } from "./db";
 import { generatePin } from "./pin";
@@ -123,7 +123,7 @@ async function loadTeamPage(
       amount: t.amount,
       note: t.note ?? undefined,
     })),
-    matches: Match.array().parse(matches),
+    matches: matches.map(toMatch),
   };
 }
 
