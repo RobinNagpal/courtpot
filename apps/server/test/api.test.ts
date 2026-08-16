@@ -3,6 +3,7 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Role } from "@courtpot/schemas";
+import type { MatchT } from "@courtpot/schemas";
 import type { Hono } from "hono";
 import { createApp } from "../src/app";
 import { createDb } from "../src/db";
@@ -27,7 +28,11 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
 
   beforeAll(async () => {
     process.env.DATABASE_URL = testUrl;
-    execSync("npx prisma db push --skip-generate", {
+    // The real migrations, not `db push`: Prisma cannot model CHECK constraints,
+    // so `db push` would hand the tests a weaker schema than production runs on.
+    // `deploy` rather than `reset` because it only ever adds — it needs an empty
+    // or already-migrated database, which is what a test database should be.
+    execSync("npx prisma migrate deploy", {
       stdio: "pipe",
       env: { ...process.env, DATABASE_URL: testUrl },
     });
@@ -158,6 +163,148 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
     expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).toContain(mine);
     expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).not.toContain(theirs);
     expect(all.filter((t) => t.teamId === otherTeam).map((t) => t.id)).toEqual([theirs]);
+  });
+
+  describe("matches", () => {
+    const bo = randomUUID();
+    const cy = randomUUID();
+    const dee = randomUUID();
+    const matchId = randomUUID();
+
+    /** A valid doubles result, with the field each case is about swapped out. */
+    const doubles = (overrides: Partial<MatchT> = {}): string =>
+      JSON.stringify({
+        id: matchId,
+        teamId: ledgerTeamId,
+        playedAt: "2026-08-16T14:30:00.000Z",
+        sideA: { playerIds: [aliceId, bo], points: 21 },
+        sideB: { playerIds: [cy, dee], points: 18 },
+        ...overrides,
+      });
+
+    beforeAll(async () => {
+      for (const guest of [
+        { id: bo, name: "Bo" },
+        { id: cy, name: "Cy" },
+        { id: dee, name: "Dee" },
+      ]) {
+        await db.guest.create({ data: { ...guest, teamId: ledgerTeamId } });
+      }
+    });
+
+    it("records a four-player result", async () => {
+      const res = await app.request("/api/matches", { ...authed("POST"), body: doubles() });
+      expect(res.status).toBe(201);
+      const listed = (await (await app.request("/api/matches", authed())).json()) as { id: string }[];
+      expect(listed.map((match) => match.id)).toContain(matchId);
+    });
+
+    it("audits the match as its own entity", async () => {
+      const log = (await (await app.request("/api/auditLogs", authed())).json()) as {
+        entity: string;
+        entityId: string;
+        action: string;
+      }[];
+      expect(log.filter((entry) => entry.entityId === matchId)).toMatchObject([
+        { entity: "Match", action: "Create" },
+      ]);
+    });
+
+    it("blocks deleting someone who has played", async () => {
+      const res = await app.request(`/api/guests/${bo}`, authed("DELETE"));
+      expect(res.status).toBe(409);
+    });
+
+    it("round-trips a singles match through the nullable player columns", async () => {
+      const id = randomUUID();
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({
+          id,
+          sideA: { playerIds: [aliceId], points: 11 },
+          sideB: { playerIds: [cy], points: 15 },
+        }),
+      });
+      expect(res.status).toBe(201);
+      // Stored flat: the second slot of each side is null for singles.
+      const stored = await db.match.findUnique({ where: { id } });
+      expect(stored).toMatchObject({
+        sideAPlayer1: aliceId,
+        sideAPlayer2: null,
+        sideBPlayer1: cy,
+        sideBPlayer2: null,
+      });
+      // Read back nested, with one player a side rather than an empty slot.
+      const listed = (await (await app.request("/api/matches", authed())).json()) as MatchT[];
+      expect(listed.find((match) => match.id === id)).toMatchObject({
+        sideA: { playerIds: [aliceId], points: 11 },
+        sideB: { playerIds: [cy], points: 15 },
+      });
+    });
+
+    it("edits a match without losing its team", async () => {
+      const id = randomUUID();
+      await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      const res = await app.request(`/api/matches/${id}`, {
+        ...authed("PUT"),
+        body: doubles({ id, sideA: { playerIds: [aliceId, bo], points: 15 } }),
+      });
+      expect(res.status).toBe(200);
+      expect(await db.match.findUnique({ where: { id } })).toMatchObject({
+        teamId: ledgerTeamId,
+        sideAPoints: 15,
+      });
+    });
+
+    it("refuses a match naming somebody who does not exist", async () => {
+      // No foreign key can cover a player id, so the check is the server's job.
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [randomUUID(), dee], points: 18 } }),
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it("names the column that collided instead of guessing", async () => {
+      const id = randomUUID();
+      await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      const res = await app.request("/api/matches", { ...authed("POST"), body: doubles({ id }) });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "A row with that id already exists" });
+    });
+
+    it("counts a player's matches without parsing every row", async () => {
+      // One unreadable match must not break deleting an unrelated person.
+      await db.$executeRawUnsafe(
+        `INSERT INTO matches (id, team_id, played_at, side_a_player_1, side_a_points, side_b_player_1, side_b_points)
+         VALUES ($1, $2, 'not-an-instant', $3, 1, $4, 2)`,
+        randomUUID(),
+        ledgerTeamId,
+        randomUUID(),
+        randomUUID(),
+      );
+      const bystander = randomUUID();
+      await db.guest.create({ data: { id: bystander, teamId: ledgerTeamId, name: "Bystander" } });
+      const res = await app.request(`/api/guests/${bystander}`, authed("DELETE"));
+      expect(res.status).toBe(204);
+      await db.match.deleteMany({ where: { playedAt: "not-an-instant" } });
+    });
+
+    it("rejects a draw", async () => {
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [cy, dee], points: 21 } }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects the same player on both sides", async () => {
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [aliceId, dee], points: 18 } }),
+      });
+      expect(res.status).toBe(400);
+    });
   });
 
   describe("audit log", () => {

@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { Uuid } from "./ids";
 import { Pin } from "./auth";
 import { Balance, GuestBooking, IsoDate, MemberBooking, PositiveCents } from "./costSplitting";
+import { Match } from "./matches";
 import { Role, RoleSchema } from "./roles";
 
 /**
@@ -17,7 +19,7 @@ export const Slug = z
 
 /** Public shape of a team. The PIN is never part of it. */
 export const Team = z.object({
-  id: z.string().uuid(),
+  id: Uuid,
   name: z.string().trim().min(1, "Team name is required"),
   /** Optional short handle for the public page URL, e.g. /t/sher-e-smash. */
   slug: Slug.nullable().default(null),
@@ -37,7 +39,7 @@ export const TeamEdit = z.object({
 });
 
 /** Marking a team as your landing page. */
-export const SetDefaultTeamInput = z.object({ teamId: z.string().uuid() });
+export const SetDefaultTeamInput = z.object({ teamId: Uuid });
 
 /** What anyone submits to open a team page. */
 export const TeamUnlockInput = z.object({ pin: Pin });
@@ -53,8 +55,8 @@ export const MemberTeam = Team.extend({ role: RoleSchema });
 
 /** A member's role within one team. A member may belong to several teams. */
 export const TeamMembership = z.object({
-  teamId: z.string().uuid(),
-  memberId: z.string().uuid(),
+  teamId: Uuid,
+  memberId: Uuid,
   role: RoleSchema.default(Role.TeamMemberViewer),
 });
 
@@ -64,34 +66,37 @@ export const TeamMembership = z.object({
  * member, so this is the minimum needed to read the ledger.
  */
 export const PublicPerson = z.object({
-  id: z.string().uuid(),
+  id: Uuid,
   name: z.string(),
 });
 
 /** A transfer as shown publicly. Same shape as Transfer minus the team. */
 export const PublicTransfer = z.object({
-  id: z.string().uuid(),
+  id: Uuid,
   date: IsoDate,
-  fromId: z.string().uuid(),
-  toId: z.string().uuid(),
+  fromId: Uuid,
+  toId: Uuid,
   amount: PositiveCents,
   note: z.string().optional(),
 });
 
 /**
- * What the team PIN unlocks: read-only balances, people and transfers for one
- * team. Balances are computed server-side so the payload never has to carry
- * member roles just to feed the engine.
+ * What the team PIN unlocks: read-only balances, people, transfers and matches
+ * for one team. Balances are computed server-side so the payload never has to
+ * carry member roles just to feed the engine; pair rankings are not, because
+ * they derive from the matches already here.
  */
 export const TeamPage = z.object({
   team: Team,
   members: z.array(PublicPerson),
   guests: z.array(PublicPerson),
   balances: z.array(Balance),
-  // Bookings carry no secrets — only ids already present in members/guests.
+  // Bookings and matches carry no secrets — only ids already present in
+  // members/guests.
   memberBookings: z.array(MemberBooking),
   guestBookings: z.array(GuestBooking),
   transfers: z.array(PublicTransfer),
+  matches: z.array(Match),
 });
 
 export type MemberTeamT = z.infer<typeof MemberTeam>;

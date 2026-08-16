@@ -19,12 +19,15 @@ const DESTINATIONS: readonly Destination[] = [
   { href: "/member-bookings", label: "Member bookings", icon: "calendar-outline" },
   { href: "/guest-bookings", label: "Guest bookings", icon: "person-add-outline" },
   { href: "/transfers", label: "Transfers", icon: "swap-horizontal-outline" },
+  { href: "/matches", label: "Matches", icon: "tennisball-outline" },
+  { href: "/rankings", label: "Rankings", icon: "trophy-outline" },
   { href: "/people", label: "People", icon: "people-outline" },
 ];
 
 /**
  * One bar on every section screen listing every destination, so any page is one
- * tap from any other — including the member/guest booking cross-links.
+ * tap from any other. The home menu groups these three-by-two; this bar stays
+ * flat, because its whole point is skipping the menu.
  */
 export function AppNav(): ReactElement {
   const router = useRouter();

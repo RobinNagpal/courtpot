@@ -3,6 +3,7 @@ import type { UseMutationResult } from "@tanstack/react-query";
 import type {
   GuestBookingT,
   GuestT,
+  MatchT,
   MemberBookingT,
   MemberT,
   TransferT,
@@ -86,6 +87,10 @@ export function useGuestBookingMutations(): CollectionMutations<GuestBookingT> {
 
 export function useTransferMutations(): CollectionMutations<TransferT> {
   return useCollectionMutations(queryKeys.transfers, useLedgerClient().transfers);
+}
+
+export function useMatchMutations(): CollectionMutations<MatchT> {
+  return useCollectionMutations(queryKeys.matches, useLedgerClient().matches);
 }
 
 /** Settle-up: write N transfers as one logical action, invalidate once. */

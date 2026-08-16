@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Uuid } from "./ids";
 
 export enum AuditAction {
   Create = "Create",
@@ -13,6 +14,7 @@ export enum AuditEntity {
   MemberBooking = "MemberBooking",
   GuestBooking = "GuestBooking",
   Transfer = "Transfer",
+  Match = "Match",
   Team = "Team",
   TeamMembership = "TeamMembership",
 }
@@ -44,10 +46,10 @@ export const JsonValue: z.ZodType<JsonValueT> = z.lazy(() =>
 );
 
 export const AuditLogEntry = z.object({
-  id: z.string().uuid(),
+  id: Uuid,
   at: z.coerce.date(),
   /** Null once the acting member has been deleted; actorName is kept regardless. */
-  actorId: z.string().uuid().nullable(),
+  actorId: Uuid.nullable(),
   actorName: z.string(),
   action: AuditActionSchema,
   entity: AuditEntitySchema,

@@ -7,9 +7,11 @@ import {
   Role,
   Transfer,
 } from "@courtpot/schemas";
+import { matchPlayerIds } from "@courtpot/schemas";
 import type {
   GuestBookingT,
   GuestT,
+  MatchT,
   MemberBookingT,
   MemberCreateT,
   TransferT,
@@ -17,9 +19,10 @@ import type {
 import { countPersonReferences } from "@courtpot/domain";
 import type { LedgerInput } from "@courtpot/domain";
 import { ensureTeamMembership } from "./bootstrap";
+import { toMatch, toMatchRow } from "./matchRows";
 import type { CollectionStore } from "./collections";
 import type { Db } from "./db";
-import { ConflictError } from "./errors";
+import { ConflictError, NotFoundError } from "./errors";
 import { generatePin } from "./pin";
 
 export interface LedgerStores {
@@ -28,6 +31,7 @@ export interface LedgerStores {
   memberBookings: CollectionStore<MemberBookingT>;
   guestBookings: CollectionStore<GuestBookingT>;
   transfers: CollectionStore<TransferT>;
+  matches: CollectionStore<MatchT>;
 }
 
 async function loadLedger(db: Db): Promise<LedgerInput> {
@@ -47,10 +51,49 @@ async function loadLedger(db: Db): Promise<LedgerInput> {
   };
 }
 
+/**
+ * Matches this person played in, counted in the database rather than by loading
+ * and parsing every match. This is the query the player indexes exist for, and
+ * it keeps one unreadable match row from breaking the delete of an unrelated
+ * person.
+ */
+function countMatchesWithPlayer(db: Db, personId: string): Promise<number> {
+  return db.match.count({
+    where: {
+      OR: [
+        { sideAPlayer1: personId },
+        { sideAPlayer2: personId },
+        { sideBPlayer1: personId },
+        { sideBPlayer2: personId },
+      ],
+    },
+  });
+}
+
 async function assertUnreferenced(db: Db, personId: string, label: string): Promise<void> {
-  const references = countPersonReferences(personId, await loadLedger(db));
+  const [ledger, played] = await Promise.all([loadLedger(db), countMatchesWithPlayer(db, personId)]);
+  const references = countPersonReferences(personId, ledger) + played;
   if (references > 0) {
     throw new ConflictError(`Cannot delete this ${label}: referenced by ${references} row(s)`);
+  }
+}
+
+/**
+ * A player id names a member or a guest, which no foreign key can express — so
+ * the check lives here. Without it the delete guard protects nothing: it stops
+ * you removing a player who is in a match, while an insert could name somebody
+ * who never existed at all.
+ */
+async function assertPlayersExist(db: Db, rows: readonly MatchT[]): Promise<void> {
+  const ids = [...new Set(rows.flatMap(matchPlayerIds))];
+  const [members, guests] = await Promise.all([
+    db.member.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+    db.guest.findMany({ where: { id: { in: ids } }, select: { id: true } }),
+  ]);
+  const known = new Set([...members, ...guests].map((person) => person.id));
+  const missing = ids.filter((id) => !known.has(id));
+  if (missing.length > 0) {
+    throw new NotFoundError(`No such player: ${missing.join(", ")}`);
   }
 }
 
@@ -174,5 +217,41 @@ export function createStores(db: Db): LedgerStores {
     },
   };
 
-  return { members, guests, memberBookings, guestBookings, transfers };
+  const matches: CollectionStore<MatchT> = {
+    list: async () => (await db.match.findMany({ orderBy: { playedAt: "desc" } })).map(toMatch),
+    create: async (row) => {
+      await assertPlayersExist(db, [row]);
+      return toMatch(await db.match.create({ data: toMatchRow(row) }));
+    },
+    createMany: async (rows) => {
+      await assertPlayersExist(db, rows);
+      await db.match.createMany({ data: rows.map(toMatchRow) });
+      return rows;
+    },
+    // Everything but id and teamId, which are fixed at creation like every
+    // other collection's.
+    update: async (row) => {
+      await assertPlayersExist(db, [row]);
+      const flat = toMatchRow(row);
+      return toMatch(
+        await db.match.update({
+          where: { id: row.id },
+          data: {
+            playedAt: flat.playedAt,
+            sideAPlayer1: flat.sideAPlayer1,
+            sideAPlayer2: flat.sideAPlayer2,
+            sideAPoints: flat.sideAPoints,
+            sideBPlayer1: flat.sideBPlayer1,
+            sideBPlayer2: flat.sideBPlayer2,
+            sideBPoints: flat.sideBPoints,
+          },
+        }),
+      );
+    },
+    remove: async (id) => {
+      await db.match.delete({ where: { id } });
+    },
+  };
+
+  return { members, guests, memberBookings, guestBookings, transfers, matches };
 }

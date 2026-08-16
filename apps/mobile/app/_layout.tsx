@@ -62,6 +62,11 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="member-bookings" options={{ title: "Member Bookings" }} />
                 <Stack.Screen name="guest-bookings" options={{ title: "Guest Bookings" }} />
                 <Stack.Screen name="transfers" options={{ title: "Transfers" }} />
+                <Stack.Screen name="matches" options={{ title: "Matches" }} />
+                <Stack.Screen name="rankings" options={{ title: "Rankings" }} />
+                <Stack.Screen name="money" options={{ title: "Money" }} />
+                <Stack.Screen name="bookings" options={{ title: "Bookings" }} />
+                <Stack.Screen name="play" options={{ title: "Play" }} />
                 <Stack.Screen name="people" options={{ title: "People" }} />
                 <Stack.Screen name="teams" options={{ title: "Switch team" }} />
                 {/* Public: no home button, since the viewer has no team home. */}
@@ -79,6 +84,9 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="team/[id]/index" options={{ title: "Team" }} />
                 <Stack.Screen name="team/[id]/edit" options={{ title: "Edit team" }} />
                 <Stack.Screen name="transfer/new" options={{ presentation: "modal", title: "Record transfer" }} />
+                <Stack.Screen name="match/new" options={{ presentation: "modal", title: "Record match" }} />
+                <Stack.Screen name="match/[id]/index" options={{ title: "Match" }} />
+                <Stack.Screen name="match/[id]/edit" options={{ title: "Edit match" }} />
               </Stack>
             </AuthGate>
           </TeamProvider>

@@ -25,6 +25,7 @@ import {
 } from "@courtpot/schemas";
 import type { RoleT } from "@courtpot/schemas";
 import { recordAudit } from "./audit";
+import { toMatch } from "./matchRows";
 import type { AuthEnv } from "./auth";
 import type { Db } from "./db";
 import { generatePin } from "./pin";
@@ -78,21 +79,22 @@ export function publicTeamsRouter(db: Db): Hono {
 }
 
 /**
- * The read-only view behind a team PIN: this team's people, its transfers and
- * the balances derived from its whole ledger. Bookings feed the balances but are
- * not listed, and balances are computed here so the payload never carries member
- * roles or usernames just to run the engine.
+ * The read-only view behind a team PIN: this team's people, its transfers, its
+ * matches and the balances derived from its whole ledger. Balances are computed
+ * here so the payload never carries member roles or usernames just to run the
+ * engine; pair rankings are left to the client, which has the matches anyway.
  */
 async function loadTeamPage(
   db: Db,
   team: { id: string; name: string; slug: string | null },
 ): Promise<unknown> {
-  const [memberships, guests, memberBookings, guestBookings, transfers] = await Promise.all([
+  const [memberships, guests, memberBookings, guestBookings, transfers, matches] = await Promise.all([
     db.teamMember.findMany({ where: { teamId: team.id }, include: { member: true } }),
     db.guest.findMany({ where: { teamId: team.id }, orderBy: { name: "asc" } }),
     db.memberBooking.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
     db.guestBooking.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
     db.transfer.findMany({ where: { teamId: team.id }, orderBy: { date: "desc" } }),
+    db.match.findMany({ where: { teamId: team.id }, orderBy: { playedAt: "desc" } }),
   ]);
 
   const members = memberships.map((row) => row.member).sort((a, b) => a.name.localeCompare(b.name));
@@ -121,6 +123,7 @@ async function loadTeamPage(
       amount: t.amount,
       note: t.note ?? undefined,
     })),
+    matches: matches.map(toMatch),
   };
 }
 

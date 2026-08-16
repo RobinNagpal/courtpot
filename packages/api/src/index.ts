@@ -10,14 +10,17 @@ export {
   useGuestBookings,
   useGuests,
   useLedgerInput,
+  useMatches,
   useMemberBookings,
   useMembers,
+  usePairRankings,
   useTransfers,
 } from "./queries";
-export type { BalancesResult, LedgerInputResult } from "./queries";
+export type { BalancesResult, LedgerInputResult, PairRankingsResult } from "./queries";
 export {
   useGuestBookingMutations,
   useGuestMutations,
+  useMatchMutations,
   useMemberBookingMutations,
   useMemberMutations,
   useTransferMutations,

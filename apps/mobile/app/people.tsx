@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
-import { useGuestMutations, useLedgerInput, useMemberMutations } from "@courtpot/api";
-import { countPersonReferences } from "@courtpot/domain";
+import { useGuestMutations, useLedgerInput, useMatches, useMemberMutations } from "@courtpot/api";
 import type { LedgerInput } from "@courtpot/domain";
 import type { MemberT } from "@courtpot/schemas";
 import { Guest, Member, MemberCreate } from "@courtpot/schemas";
@@ -15,6 +14,7 @@ import { useAuth } from "../lib/auth";
 import { isRemote } from "../lib/config";
 import { firstIssueMessage } from "../lib/forms";
 import { newId } from "../lib/id";
+import { countReferences, deleteBlockedReason } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
 interface NamedRow {
@@ -66,14 +66,18 @@ export default function PeopleScreen(): ReactElement {
   const { member: signedInMember, logout } = useAuth();
   const memberMutations = useMemberMutations();
   const guestMutations = useGuestMutations();
+  const matches = useMatches();
 
-  if (isPending) {
+  // Matches feed the delete guard, so a delete must not be offered until they
+  // have loaded: an empty list reads as "nobody has played" and unblocks it.
+  if (isPending || matches.isPending) {
     return <LoadingState />;
   }
-  if (isError || input === null) {
+  if (isError || matches.isError || input === null) {
     return <ErrorState message="Could not load people." />;
   }
   const ledger: LedgerInput = input;
+  const teamMatches = (matches.data ?? []).filter((match) => match.teamId === teamId);
   const activeCount = ledger.members.filter((m) => m.active).length;
 
   const mutationProblem =
@@ -146,7 +150,7 @@ export default function PeopleScreen(): ReactElement {
       <FormError message={mutationProblem} />
       <View>
         {ledger.members.map((member) => {
-          const references = countPersonReferences(member.id, ledger);
+          const references = countReferences(member.id, ledger, teamMatches);
           return (
             <View key={member.id}>
               <ListItem
@@ -170,10 +174,7 @@ export default function PeopleScreen(): ReactElement {
                       {
                         label: "Delete",
                         destructive: true,
-                        disabledReason:
-                          references > 0
-                            ? `${member.name} appears in ${references} booking/transfer row${references === 1 ? "" : "s"}. Delete those first.`
-                            : undefined,
+                        disabledReason: deleteBlockedReason(member.name, references),
                         confirm: { title: "Delete member?", message: `Remove ${member.name} permanently.` },
                         onPress: () => memberMutations.remove.mutate(member.id),
                       },
@@ -193,7 +194,7 @@ export default function PeopleScreen(): ReactElement {
       ) : (
         <View>
           {ledger.guests.map((guest) => {
-            const references = countPersonReferences(guest.id, ledger);
+            const references = countReferences(guest.id, ledger, teamMatches);
             return (
               <View key={guest.id}>
                 <ListItem
@@ -211,10 +212,7 @@ export default function PeopleScreen(): ReactElement {
                         {
                           label: "Delete",
                           destructive: true,
-                          disabledReason:
-                            references > 0
-                              ? `${guest.name} appears in ${references} booking/transfer row${references === 1 ? "" : "s"}. Delete those first.`
-                              : undefined,
+                          disabledReason: deleteBlockedReason(guest.name, references),
                           confirm: { title: "Delete guest?", message: `Remove ${guest.name} permanently.` },
                           onPress: () => guestMutations.remove.mutate(guest.id),
                         },

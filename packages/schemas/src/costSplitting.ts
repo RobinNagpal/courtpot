@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Uuid } from "./ids";
 import { Role, RoleSchema } from "./roles";
 
 /** All money is integer minor units (cents): 4800 = $48.00. */
@@ -9,41 +10,41 @@ export const PositiveCents = Cents.positive();
 export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
 
 export const Member = z.object({
-  id: z.string().uuid(),
+  id: Uuid,
   name: z.string().trim().min(1, "Name is required"),
   username: z.string().trim().min(1).optional(),
   active: z.boolean().default(true),
   /** Platform role. Only `Admin` grants anything here; team roles live on the membership. */
   role: RoleSchema.default(Role.TeamMember),
   /** Team to land on at login. Null until the member marks one. */
-  defaultTeamId: z.string().uuid().nullable().default(null),
+  defaultTeamId: Uuid.nullable().default(null),
 });
 
 export const Guest = z.object({
-  id: z.string().uuid(),
-  teamId: z.string().uuid(),
+  id: Uuid,
+  teamId: Uuid,
   name: z.string().trim().min(1, "Name is required"),
   note: z.string().optional(),
 });
 
 /** One funder of a member booking. */
 export const Payer = z.object({
-  memberId: z.string().uuid(),
+  memberId: Uuid,
   amount: PositiveCents,
 });
 
 export const MemberBooking = z.object({
-  id: z.string().uuid(),
-  teamId: z.string().uuid(),
+  id: Uuid,
+  teamId: Uuid,
   date: IsoDate,
   title: z.string().trim().default(""),
-  memberIds: z.array(z.string().uuid()).min(1, "Pick at least one player"),
+  memberIds: z.array(Uuid).min(1, "Pick at least one player"),
   payers: z.array(Payer).min(1, "Add at least one payer"),
 });
 
 /** One guest on a guest booking, charged their own amount. */
 export const GuestCharge = z.object({
-  guestId: z.string().uuid(),
+  guestId: Uuid,
   amount: PositiveCents,
 });
 
@@ -53,13 +54,13 @@ export const GuestCharge = z.object({
  * between them, so "ALL" is exactly "select everyone".
  */
 export const PaidBy = z.union([
-  z.array(z.string().uuid()).min(1, "Pick at least one payer"),
+  z.array(Uuid).min(1, "Pick at least one payer"),
   z.literal("ALL"),
 ]);
 
 export const GuestBooking = z.object({
-  id: z.string().uuid(),
-  teamId: z.string().uuid(),
+  id: Uuid,
+  teamId: Uuid,
   date: IsoDate,
   title: z.string().trim().default(""),
   guests: z.array(GuestCharge).min(1, "Add at least one guest"),
@@ -73,11 +74,11 @@ export function guestBookingTotal(booking: { guests: readonly { amount: number }
 
 export const Transfer = z
   .object({
-    id: z.string().uuid(),
-    teamId: z.string().uuid(),
+    id: Uuid,
+    teamId: Uuid,
     date: IsoDate,
-    fromId: z.string().uuid(),
-    toId: z.string().uuid(),
+    fromId: Uuid,
+    toId: Uuid,
     amount: PositiveCents,
     note: z.string().optional(),
   })
@@ -85,7 +86,7 @@ export const Transfer = z
 
 /** Derived, never persisted. Positive owedCents = owes money. */
 export const Balance = z.object({
-  personId: z.string().uuid(),
+  personId: Uuid,
   kind: z.enum(["member", "guest"]),
   name: z.string(),
   owedCents: Cents,

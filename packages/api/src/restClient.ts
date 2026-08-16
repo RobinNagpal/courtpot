@@ -3,6 +3,7 @@ import {
   Guest,
   GuestBooking,
   LoginResult,
+  Match,
   Member,
   MemberBooking,
   MemberTeam,
@@ -101,6 +102,7 @@ export function createRestLedgerClient(config: RestClientConfig): LedgerClient {
     memberBookings: restCollection(config, "/api/memberBookings", MemberBooking),
     guestBookings: restCollection(config, "/api/guestBookings", GuestBooking),
     transfers: restCollection(config, "/api/transfers", Transfer),
+    matches: restCollection(config, "/api/matches", Match),
   };
 }
 
