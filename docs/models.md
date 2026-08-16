@@ -1,8 +1,9 @@
 # Models — entities and their relationships
 
-There are **six persisted entities** and one derived one. Two kinds of people (`Member`,
-`Guest`), three kinds of ledger rows (`MemberBooking`, `GuestBooking`, `Transfer`), one
-session table (`AuthSession`), and `Balance` — which is computed, never stored.
+Two kinds of people (`Member`, `Guest`), three kinds of ledger rows (`MemberBooking`,
+`GuestBooking`, `Transfer`), `Match` for what was actually played, plus the team, session and
+audit tables. Two entities are **derived, never stored**: `Balance` from the ledger rows, and
+`PairRanking` from the matches.
 
 All money is **integer cents**. `4800` means $48.00. Formatting to `$` happens only at the
 display edge via `formatCents`.
@@ -55,6 +56,13 @@ erDiagram
         string note "nullable"
     }
 
+    MATCH {
+        string id PK
+        string playedAt "ISO-8601 UTC instant as text"
+        json sideA "{playerIds: [...], points} — one or two players"
+        json sideB "the other side, always the same size"
+    }
+
     AUTHSESSION {
         string token PK "24 random bytes, base64url"
         string memberId FK
@@ -67,6 +75,9 @@ Three modelling choices to be aware of:
 - **`date` is a `String`, not a `DateTime`.** It holds a local calendar day (`YYYY-MM-DD`,
   enforced by the `IsoDate` Zod regex). A booking happened on a day, not at an instant, so
   storing a timestamp would invite timezone bugs and force an arbitrary time-of-day.
+  `Match.playedAt` is the exception that proves the rule: two matches can happen on one
+  afternoon, so it holds a full instant — still as text, in ISO-8601 UTC, which sorts
+  lexically and so needs no `DateTime` column to order by.
 - **`id` is app-generated.** No `@default(uuid())` — the client mints the uuid so an
   optimistic cache write and the eventual server row share an identity, and offline-created
   rows keep the same id when they sync.
@@ -86,6 +97,7 @@ identifier ever needs quoting in raw SQL.
 | `MemberBooking` | `member_bookings` | `memberIds` → `member_ids` |
 | `GuestBooking` | `guest_bookings` | `guestId` → `guest_id`, `paidBy` → `paid_by` |
 | `Transfer` | `transfers` | `fromId` → `from_id`, `toId` → `to_id` |
+| `Match` | `matches` | `playedAt` → `played_at`, `sideA` → `side_a`, `sideB` → `side_b` |
 | `AuthSession` | `auth_sessions` | `memberId` → `member_id`, `createdAt` → `created_at` |
 
 Application code only ever sees the Prisma names, so this mapping is invisible outside
@@ -111,6 +123,7 @@ flowchart TD
         T["Transfer"]
     end
 
+    MA["Match"]
     S["AuthSession"]
 
     M ==>|"FK + cascade"| S
@@ -122,14 +135,17 @@ flowchart TD
     GB -.->|"paidBy = 'ALL' → split across active members"| M
     T -.->|"fromId / toId"| M
     T -.->|"fromId / toId"| G
+    MA -.->|"sideA/sideB playerIds[]"| M
+    MA -.->|"sideA/sideB playerIds[]"| G
 
-    guard["countPersonReferences(personId, ledger)<br/>packages/domain/src/references.ts"]
+    guard["countPersonReferences(personId, ledger)<br/>+ countMatchReferences(personId, matches)<br/>packages/domain/src/references.ts"]
     guard ==>|"> 0 → 409 Conflict, delete refused"| rows
+    guard ==>|"> 0 → 409 Conflict, delete refused"| MA
 
     classDef solidCls fill:#e6f4ea,stroke:#34a853
     classDef dashCls fill:#fef7e0,stroke:#f9ab00
     class S solidCls
-    class MB,GB,T dashCls
+    class MB,GB,T,MA dashCls
 ```
 
 `==>` is a database-enforced relation. `-.->` is a reference the database knows nothing
@@ -277,8 +293,10 @@ rather than reshuffling on every render.
 | `MemberBooking` | yes | members (players + payers) | cost = sum of payers, split equally among players |
 | `GuestBooking` | yes | one guest, one member **or** `"ALL"` | guest charged, funder credited |
 | `Transfer` | yes | any two people, member or guest | must differ (`refine`); sender credited |
+| `Match` | yes | two to four people, member or guest | equal sides, nobody twice, no draw; moves no money |
 | `AuthSession` | yes | one member (FK, cascade) | bearer token; no expiry column |
 | `Team` | yes | — | unique `name` |
 | `TeamMember` | yes | one team + one member (composite PK) | holds the per-team `role` |
 | `AuditLog` | yes | acting member (FK, `SET NULL`) | append-only; `actorName` denormalised so entries outlive the actor |
 | `Balance` | **no** | — | derived per render; sum always exactly 0 |
+| `PairRanking` | **no** | — | derived from matches per render; doubles sides only |

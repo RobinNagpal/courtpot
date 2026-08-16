@@ -4,6 +4,7 @@ export const queryKeys = {
   memberBookings: ["memberBookings"],
   guestBookings: ["guestBookings"],
   transfers: ["transfers"],
+  matches: ["matches"],
 } as const;
 
 export type CollectionKey = keyof typeof queryKeys;

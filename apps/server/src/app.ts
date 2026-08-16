@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { Prisma } from "@prisma/client";
-import { AuditEntity, Guest, GuestBooking, MemberBooking, MemberCreate, Transfer } from "@courtpot/schemas";
+import { AuditEntity, Guest, GuestBooking, Match, MemberBooking, MemberCreate, Transfer } from "@courtpot/schemas";
 import { Action } from "@courtpot/domain";
 import { listAuditLog } from "./audit";
 import { authRouter, requireAuth, requireCan, sessionRouter } from "./auth";
@@ -30,7 +30,7 @@ export function createApp(db: Db): Hono {
   // derive balances. Only writes are gated.
   const writeMethods = ["POST", "PUT", "DELETE"];
   const paths = (name: string): string[] => [`/api/${name}`, `/api/${name}/*`];
-  const ledger = ["guests", "memberBookings", "guestBookings", "transfers"].flatMap(paths);
+  const ledger = ["guests", "memberBookings", "guestBookings", "transfers", "matches"].flatMap(paths);
 
   app.on(writeMethods, paths("members"), requireCan(Action.ManageMembers));
   app.on(writeMethods, ledger, requireCan(Action.WriteLedger));
@@ -52,6 +52,7 @@ export function createApp(db: Db): Hono {
     collectionRouter(GuestBooking, stores.guestBookings, AuditEntity.GuestBooking, db),
   );
   app.route("/api/transfers", collectionRouter(Transfer, stores.transfers, AuditEntity.Transfer, db));
+  app.route("/api/matches", collectionRouter(Match, stores.matches, AuditEntity.Match, db));
 
   app.onError((error, c) => {
     if (error instanceof ConflictError) {

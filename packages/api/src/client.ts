@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   Guest,
   GuestBooking,
+  Match,
   Member,
   MemberBooking,
   Transfer,
@@ -9,6 +10,7 @@ import {
 import type {
   GuestBookingT,
   GuestT,
+  MatchT,
   MemberBookingT,
   MemberT,
   TransferT,
@@ -26,13 +28,14 @@ export interface CollectionClient<T extends Entity> {
   remove(id: string): Promise<void>;
 }
 
-/** The five raw collections the wider app's backend must provide. */
+/** The raw collections the wider app's backend must provide. */
 export interface LedgerClient {
   members: CollectionClient<MemberT>;
   guests: CollectionClient<GuestT>;
   memberBookings: CollectionClient<MemberBookingT>;
   guestBookings: CollectionClient<GuestBookingT>;
   transfers: CollectionClient<TransferT>;
+  matches: CollectionClient<MatchT>;
 }
 
 /** Minimal async string store (AsyncStorage, MMKV, localStorage…). */
@@ -105,5 +108,6 @@ export function createLocalLedgerClient(store: KeyValueStore): LedgerClient {
     memberBookings: createCollection(store, key("memberBookings"), MemberBooking),
     guestBookings: createCollection(store, key("guestBookings"), GuestBooking),
     transfers: createCollection(store, key("transfers"), Transfer),
+    matches: createCollection(store, key("matches"), Match),
   };
 }

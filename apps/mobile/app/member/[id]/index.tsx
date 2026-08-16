@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useBalances, useLedgerInput, useMemberBookings, useMembers, useTransfers } from "@courtpot/api";
-import { countPersonReferences, memberBookingSplit } from "@courtpot/domain";
+import { useBalances, useLedgerInput, useMatches, useMemberBookings, useMembers, useTransfers } from "@courtpot/api";
+import { memberBookingSplit } from "@courtpot/domain";
 import {
   BalanceChip,
   EmptyState,
@@ -18,7 +18,7 @@ import { EntityHeading } from "../../../components/EntityHeading";
 import { PersonTransfers } from "../../../components/PersonTransfers";
 import { EditButton } from "../../../components/EditButton";
 import { matchesMemberBooking } from "../../../lib/bookings";
-import { usePersonNames } from "../../../lib/people";
+import { countReferences, referencesLabel, usePersonNames } from "../../../lib/people";
 import { useActiveTeamId } from "../../../lib/team";
 
 /** Read-only detail for one member. */
@@ -31,6 +31,7 @@ export default function MemberViewScreen(): ReactElement {
   const transfers = useTransfers();
   const names = usePersonNames();
   const { input } = useLedgerInput(teamId);
+  const matches = useMatches();
   const { balances } = useBalances(teamId);
 
   if (members.isPending) {
@@ -45,8 +46,9 @@ export default function MemberViewScreen(): ReactElement {
     return <ErrorState message="Member not found." />;
   }
 
+  const teamMatches = (matches.data ?? []).filter((match) => match.teamId === teamId);
   const balance = balances.find((row) => row.personId === member.id);
-  const references = input === null ? null : countPersonReferences(member.id, input);
+  const references = input === null ? null : countReferences(member.id, input, teamMatches);
   const mine = (bookings.data ?? [])
     .filter((booking) => booking.teamId === teamId && matchesMemberBooking(booking, member.id))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
@@ -74,7 +76,7 @@ export default function MemberViewScreen(): ReactElement {
         />
         <Detail
           label="Appears in"
-          value={references === null ? "—" : `${references} booking/transfer row${references === 1 ? "" : "s"}`}
+          value={references === null ? "—" : referencesLabel(references)}
         />
       </View>
 

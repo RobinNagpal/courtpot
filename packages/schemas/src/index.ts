@@ -1,4 +1,5 @@
 export * from "./costSplitting";
+export * from "./matches";
 export * from "./roles";
 export * from "./teams";
 export * from "./audit";

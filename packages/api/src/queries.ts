@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { computeBalances } from "@courtpot/domain";
-import type { LedgerInput } from "@courtpot/domain";
+import { computeBalances, computePairRankings } from "@courtpot/domain";
+import type { LedgerInput, PairRanking } from "@courtpot/domain";
 import type {
   BalanceT,
   GuestBookingT,
   GuestT,
+  MatchT,
   MemberBookingT,
   MemberT,
   TransferT,
@@ -37,6 +38,11 @@ export function useGuestBookings(): UseQueryResult<GuestBookingT[], Error> {
 export function useTransfers(): UseQueryResult<TransferT[], Error> {
   const client = useLedgerClient();
   return useQuery({ queryKey: queryKeys.transfers, queryFn: () => client.transfers.list() });
+}
+
+export function useMatches(): UseQueryResult<MatchT[], Error> {
+  const client = useLedgerClient();
+  return useQuery({ queryKey: queryKeys.matches, queryFn: () => client.matches.list() });
 }
 
 export interface LedgerInputResult {
@@ -91,4 +97,20 @@ export function useBalances(teamId?: string): BalancesResult {
   const { input, isPending, isError } = useLedgerInput(teamId);
   const balances = useMemo(() => (input === null ? [] : computeBalances(input)), [input]);
   return { balances, input, isPending, isError };
+}
+
+export interface PairRankingsResult {
+  rankings: PairRanking[];
+  isPending: boolean;
+  isError: boolean;
+}
+
+/** Pair standings for one team, derived from the cached matches. */
+export function usePairRankings(teamId?: string): PairRankingsResult {
+  const matches = useMatches();
+  const rankings = useMemo(() => {
+    const rows = matches.data ?? [];
+    return computePairRankings(teamId === undefined ? rows : rows.filter((match) => match.teamId === teamId));
+  }, [matches.data, teamId]);
+  return { rankings, isPending: matches.isPending, isError: matches.isError };
 }

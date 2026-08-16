@@ -13,6 +13,7 @@ export enum AuditEntity {
   MemberBooking = "MemberBooking",
   GuestBooking = "GuestBooking",
   Transfer = "Transfer",
+  Match = "Match",
   Team = "Team",
   TeamMembership = "TeamMembership",
 }

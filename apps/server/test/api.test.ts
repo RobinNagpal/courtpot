@@ -3,6 +3,7 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Role } from "@courtpot/schemas";
+import type { MatchT } from "@courtpot/schemas";
 import type { Hono } from "hono";
 import { createApp } from "../src/app";
 import { createDb } from "../src/db";
@@ -158,6 +159,73 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
     expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).toContain(mine);
     expect(all.filter((t) => t.teamId === ledgerTeamId).map((t) => t.id)).not.toContain(theirs);
     expect(all.filter((t) => t.teamId === otherTeam).map((t) => t.id)).toEqual([theirs]);
+  });
+
+  describe("matches", () => {
+    const bo = randomUUID();
+    const cy = randomUUID();
+    const dee = randomUUID();
+    const matchId = randomUUID();
+
+    /** A valid doubles result, with the field each case is about swapped out. */
+    const doubles = (overrides: Partial<MatchT> = {}): string =>
+      JSON.stringify({
+        id: matchId,
+        teamId: ledgerTeamId,
+        playedAt: "2026-08-16T14:30:00.000Z",
+        sideA: { playerIds: [aliceId, bo], points: 21 },
+        sideB: { playerIds: [cy, dee], points: 18 },
+        ...overrides,
+      });
+
+    beforeAll(async () => {
+      for (const guest of [
+        { id: bo, name: "Bo" },
+        { id: cy, name: "Cy" },
+        { id: dee, name: "Dee" },
+      ]) {
+        await db.guest.create({ data: { ...guest, teamId: ledgerTeamId } });
+      }
+    });
+
+    it("records a four-player result", async () => {
+      const res = await app.request("/api/matches", { ...authed("POST"), body: doubles() });
+      expect(res.status).toBe(201);
+      const listed = (await (await app.request("/api/matches", authed())).json()) as { id: string }[];
+      expect(listed.map((match) => match.id)).toContain(matchId);
+    });
+
+    it("audits the match as its own entity", async () => {
+      const log = (await (await app.request("/api/auditLogs", authed())).json()) as {
+        entity: string;
+        entityId: string;
+        action: string;
+      }[];
+      expect(log.filter((entry) => entry.entityId === matchId)).toMatchObject([
+        { entity: "Match", action: "Create" },
+      ]);
+    });
+
+    it("blocks deleting someone who has played", async () => {
+      const res = await app.request(`/api/guests/${bo}`, authed("DELETE"));
+      expect(res.status).toBe(409);
+    });
+
+    it("rejects a draw", async () => {
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [cy, dee], points: 21 } }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects the same player on both sides", async () => {
+      const res = await app.request("/api/matches", {
+        ...authed("POST"),
+        body: doubles({ id: randomUUID(), sideB: { playerIds: [aliceId, dee], points: 18 } }),
+      });
+      expect(res.status).toBe(400);
+    });
   });
 
   describe("audit log", () => {

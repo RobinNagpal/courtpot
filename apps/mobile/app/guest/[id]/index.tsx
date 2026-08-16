@@ -1,8 +1,7 @@
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useBalances, useGuestBookings, useGuests, useLedgerInput, useTransfers } from "@courtpot/api";
-import { countPersonReferences } from "@courtpot/domain";
+import { useBalances, useGuestBookings, useGuests, useLedgerInput, useMatches, useTransfers } from "@courtpot/api";
 import {
   BalanceChip,
   EmptyState,
@@ -18,7 +17,7 @@ import { EntityHeading } from "../../../components/EntityHeading";
 import { PersonTransfers } from "../../../components/PersonTransfers";
 import { EditButton } from "../../../components/EditButton";
 import { matchesGuestBooking } from "../../../lib/bookings";
-import { usePersonNames } from "../../../lib/people";
+import { countReferences, referencesLabel, usePersonNames } from "../../../lib/people";
 import { useActiveTeamId } from "../../../lib/team";
 
 /** Read-only detail for one guest. */
@@ -31,6 +30,7 @@ export default function GuestViewScreen(): ReactElement {
   const transfers = useTransfers();
   const names = usePersonNames();
   const { input } = useLedgerInput(teamId);
+  const matches = useMatches();
   const { balances } = useBalances(teamId);
 
   if (guests.isPending) {
@@ -45,8 +45,9 @@ export default function GuestViewScreen(): ReactElement {
     return <ErrorState message="Guest not found." />;
   }
 
+  const teamMatches = (matches.data ?? []).filter((match) => match.teamId === teamId);
   const balance = balances.find((row) => row.personId === guest.id);
-  const references = input === null ? null : countPersonReferences(guest.id, input);
+  const references = input === null ? null : countReferences(guest.id, input, teamMatches);
   const mine = (bookings.data ?? [])
     .filter((booking) => booking.teamId === teamId && matchesGuestBooking(booking, guest.id))
     .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
@@ -68,7 +69,7 @@ export default function GuestViewScreen(): ReactElement {
         />
         <Detail
           label="Appears in"
-          value={references === null ? "—" : `${references} booking/transfer row${references === 1 ? "" : "s"}`}
+          value={references === null ? "—" : referencesLabel(references)}
         />
       </View>
 

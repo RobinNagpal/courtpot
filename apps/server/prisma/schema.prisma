@@ -70,6 +70,7 @@ model Team {
   memberBookings MemberBooking[]
   guestBookings  GuestBooking[]
   transfers      Transfer[]
+  matches        Match[]
 
   @@map("teams")
 }
@@ -139,6 +140,26 @@ model Transfer {
 
   @@index([teamId])
   @@map("transfers")
+}
+
+/**
+ * One played match. Standalone: it settles no money and references no booking,
+ * so nothing in the ledger depends on it.
+ */
+model Match {
+  id       String @id
+  teamId   String @map("team_id")
+  // ISO-8601 UTC instant. TEXT rather than a timestamp so the row round-trips
+  // through JSON unchanged; the format sorts lexically, so ordering still holds.
+  playedAt String @map("played_at")
+  // { playerIds: [...], points } each. A player id belongs to a member or a
+  // guest — both are UUIDs, so the side does not record which.
+  sideA    Json   @map("side_a")
+  sideB    Json   @map("side_b")
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@map("matches")
 }
 
 model AuthSession {

@@ -1,7 +1,54 @@
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Local wall-clock, the shape the match form edits: "2026-08-16 14:30". */
+const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/;
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 /** Today as a local calendar day, YYYY-MM-DD. */
 export function todayIsoDate(): string {
   const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function toLocalDateTimeText(at: Date): string {
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(
+    at.getMinutes(),
+  )}`;
+}
+
+/** What the form's "Now" button fills in. */
+export function nowLocalDateTimeText(): string {
+  return toLocalDateTimeText(new Date());
+}
+
+export function isoToLocalDateTimeText(iso: string): string {
+  return toLocalDateTimeText(new Date(iso));
+}
+
+/**
+ * The form's local wall-clock text as a UTC instant, or null if it is not one.
+ * Matches are stored as instants, so this is where the device's zone is applied.
+ */
+export function localDateTimeTextToIso(text: string): string | null {
+  const parts = LOCAL_DATE_TIME.exec(text.trim());
+  if (parts === null) {
+    return null;
+  }
+  const [, year, month, day, hour, minute] = parts;
+  const at = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  // Catches a date that rolled over, like 2026-02-31 landing on 3 March.
+  if (Number.isNaN(at.getTime()) || at.getDate() !== Number(day)) {
+    return null;
+  }
+  return at.toISOString();
+}
+
+/** A stored instant read back in the device's zone: "16 Aug 2026, 14:30". */
+export function formatDateTime(iso: string): string {
+  const at = new Date(iso);
+  const month = MONTHS[at.getMonth()] ?? "";
+  return `${at.getDate()} ${month} ${at.getFullYear()}, ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }

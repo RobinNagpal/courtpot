@@ -1,3 +1,5 @@
+import { matchPlayerIds } from "@courtpot/schemas";
+import type { MatchT } from "@courtpot/schemas";
 import type { LedgerInput } from "./balances";
 
 /**
@@ -24,4 +26,13 @@ export function countPersonReferences(personId: string, input: LedgerInput): num
     }
   }
   return count;
+}
+
+/**
+ * How many matches this person played in. Counted separately from the ledger:
+ * matches move no money, so they are no part of LedgerInput — but deleting a
+ * player would still leave their id dangling in the results.
+ */
+export function countMatchReferences(personId: string, matches: readonly MatchT[]): number {
+  return matches.filter((match) => matchPlayerIds(match).includes(personId)).length;
 }

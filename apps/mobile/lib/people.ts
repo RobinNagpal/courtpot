@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useGuests, useMembers } from "@courtpot/api";
-import type { PersonKind } from "@courtpot/schemas";
+import { countMatchReferences, countPersonReferences } from "@courtpot/domain";
+import type { LedgerInput } from "@courtpot/domain";
+import type { MatchT, PersonKind } from "@courtpot/schemas";
 
 export interface PersonOption {
   id: string;
@@ -24,4 +26,22 @@ export function usePersonOptions(): PersonOption[] {
 export function usePersonNames(): Map<string, string> {
   const options = usePersonOptions();
   return useMemo(() => new Map(options.map((option) => [option.id, option.name])), [options]);
+}
+
+/** Everything that would be left dangling if this person were deleted. */
+export function countReferences(
+  personId: string,
+  ledger: LedgerInput,
+  matches: readonly MatchT[],
+): number {
+  return countPersonReferences(personId, ledger) + countMatchReferences(personId, matches);
+}
+
+export function referencesLabel(references: number): string {
+  return `${references} booking, transfer or match row${references === 1 ? "" : "s"}`;
+}
+
+/** Why deleting is blocked, or undefined when nothing points at them. */
+export function deleteBlockedReason(name: string, references: number): string | undefined {
+  return references === 0 ? undefined : `${name} appears in ${referencesLabel(references)}. Delete those first.`;
 }

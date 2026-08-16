@@ -1,6 +1,7 @@
 import {
   Guest,
   GuestBooking,
+  Match,
   Member,
   MemberBooking,
   MemberCreate,
@@ -10,11 +11,12 @@ import {
 import type {
   GuestBookingT,
   GuestT,
+  MatchT,
   MemberBookingT,
   MemberCreateT,
   TransferT,
 } from "@courtpot/schemas";
-import { countPersonReferences } from "@courtpot/domain";
+import { countMatchReferences, countPersonReferences } from "@courtpot/domain";
 import type { LedgerInput } from "@courtpot/domain";
 import { ensureTeamMembership } from "./bootstrap";
 import type { CollectionStore } from "./collections";
@@ -28,6 +30,7 @@ export interface LedgerStores {
   memberBookings: CollectionStore<MemberBookingT>;
   guestBookings: CollectionStore<GuestBookingT>;
   transfers: CollectionStore<TransferT>;
+  matches: CollectionStore<MatchT>;
 }
 
 async function loadLedger(db: Db): Promise<LedgerInput> {
@@ -48,7 +51,9 @@ async function loadLedger(db: Db): Promise<LedgerInput> {
 }
 
 async function assertUnreferenced(db: Db, personId: string, label: string): Promise<void> {
-  const references = countPersonReferences(personId, await loadLedger(db));
+  const [ledger, matches] = await Promise.all([loadLedger(db), db.match.findMany()]);
+  const references =
+    countPersonReferences(personId, ledger) + countMatchReferences(personId, Match.array().parse(matches));
   if (references > 0) {
     throw new ConflictError(`Cannot delete this ${label}: referenced by ${references} row(s)`);
   }
@@ -174,5 +179,24 @@ export function createStores(db: Db): LedgerStores {
     },
   };
 
-  return { members, guests, memberBookings, guestBookings, transfers };
+  const matches: CollectionStore<MatchT> = {
+    list: async () => Match.array().parse(await db.match.findMany({ orderBy: { playedAt: "desc" } })),
+    create: async (row) => Match.parse(await db.match.create({ data: row })),
+    createMany: async (rows) => {
+      await db.match.createMany({ data: rows });
+      return rows;
+    },
+    update: async (row) =>
+      Match.parse(
+        await db.match.update({
+          where: { id: row.id },
+          data: { playedAt: row.playedAt, sideA: row.sideA, sideB: row.sideB },
+        }),
+      ),
+    remove: async (id) => {
+      await db.match.delete({ where: { id } });
+    },
+  };
+
+  return { members, guests, memberBookings, guestBookings, transfers, matches };
 }

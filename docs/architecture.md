@@ -52,7 +52,7 @@ Prisma — which is why the engine tests (`packages/domain/test/engine.test.ts`)
 vitest with no harness.
 
 Note that `packages/api` is shared by the app only; `apps/server` deliberately does **not**
-import it. Instead it re-implements the same five-collection shape server-side
+import it. Instead it re-implements the same collection shape server-side
 (`CollectionStore` in `apps/server/src/collections.ts` mirrors `CollectionClient` in
 `packages/api/src/client.ts`), so the two sides agree by convention over a shared Zod schema
 rather than by sharing transport code.
@@ -126,7 +126,7 @@ sequenceDiagram
     API->>PG: findUnique(username), compare pin
     API-->>Browser: {token, member}
     Browser->>API: GET /api/members … (Authorization: Bearer)
-    API->>PG: findMany ×5 collections
+    API->>PG: findMany ×6 collections
     API-->>Browser: rows
 ```
 
@@ -148,7 +148,8 @@ hoisted to the repo root, so its install-time postinstall cannot find
 ## 4. Read path — how a screen gets balances
 
 Balances are never fetched and never stored. They are recomputed from the five cached
-collections on every render, in the client, by the pure engine.
+ledger collections on every render, in the client, by the pure engine. Matches are the sixth
+collection and feed no balance — they drive pair rankings, which are derived the same way.
 
 ```mermaid
 flowchart TD
@@ -187,7 +188,7 @@ cache in `onMutate`, rolls back in `onError`, and invalidates in `onSettled`. Th
 
 ## 5. Server request pipeline
 
-Every collection endpoint is generated from one function, so all five behave identically.
+Every collection endpoint is generated from one function, so all six behave identically.
 
 ```mermaid
 flowchart TD

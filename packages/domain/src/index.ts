@@ -3,5 +3,7 @@ export { computeBalances, memberBookingSplit, reconcileTotal } from "./balances"
 export type { LedgerInput } from "./balances";
 export { balanceStatus } from "./status";
 export type { BalanceStatus } from "./status";
-export { countPersonReferences } from "./references";
+export { countMatchReferences, countPersonReferences } from "./references";
+export { computePairRankings, pairKey } from "./rankings";
+export type { PairRanking } from "./rankings";
 export { Action, can, canSetPin, effectiveRole } from "./permissions";

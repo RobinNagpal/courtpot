@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Pin } from "./auth";
 import { Balance, GuestBooking, IsoDate, MemberBooking, PositiveCents } from "./costSplitting";
+import { Match } from "./matches";
 import { Role, RoleSchema } from "./roles";
 
 /**
@@ -79,19 +80,22 @@ export const PublicTransfer = z.object({
 });
 
 /**
- * What the team PIN unlocks: read-only balances, people and transfers for one
- * team. Balances are computed server-side so the payload never has to carry
- * member roles just to feed the engine.
+ * What the team PIN unlocks: read-only balances, people, transfers and matches
+ * for one team. Balances are computed server-side so the payload never has to
+ * carry member roles just to feed the engine; pair rankings are not, because
+ * they derive from the matches already here.
  */
 export const TeamPage = z.object({
   team: Team,
   members: z.array(PublicPerson),
   guests: z.array(PublicPerson),
   balances: z.array(Balance),
-  // Bookings carry no secrets — only ids already present in members/guests.
+  // Bookings and matches carry no secrets — only ids already present in
+  // members/guests.
   memberBookings: z.array(MemberBooking),
   guestBookings: z.array(GuestBooking),
   transfers: z.array(PublicTransfer),
+  matches: z.array(Match),
 });
 
 export type MemberTeamT = z.infer<typeof MemberTeam>;

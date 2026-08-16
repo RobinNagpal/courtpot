@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { memberBookingSplit } from "@courtpot/domain";
-import type { BalanceT, TeamPageT } from "@courtpot/schemas";
+import { computePairRankings, memberBookingSplit } from "@courtpot/domain";
+import { matchPlayerIds } from "@courtpot/schemas";
+import type { BalanceT, MatchT, TeamPageT } from "@courtpot/schemas";
 import {
   Avatar,
   AvatarRow,
@@ -23,10 +24,20 @@ import { NavChips } from "../../components/NavChips";
 import type { NavIconName } from "../../components/NavChips";
 import { useAuth } from "../../lib/auth";
 import { guestBookingSubtitle, guestLabel } from "../../lib/bookings";
+import { formatDateTime } from "../../lib/date";
+import { matchTitle, pairLabel, scoreLabel } from "../../lib/matches";
 import { publicTeamApi, teamsApi } from "../../lib/storage";
 import { clearTeamPin, readTeamPin, saveTeamPin } from "../../lib/teamPin";
 
-type Section = "balances" | "members" | "guests" | "memberBookings" | "guestBookings" | "transfers";
+type Section =
+  | "balances"
+  | "members"
+  | "guests"
+  | "memberBookings"
+  | "guestBookings"
+  | "transfers"
+  | "matches"
+  | "rankings";
 
 const SECTIONS: readonly { key: Section; label: string; icon: NavIconName }[] = [
   { key: "balances", label: "Balances", icon: "wallet-outline" },
@@ -35,6 +46,8 @@ const SECTIONS: readonly { key: Section; label: string; icon: NavIconName }[] = 
   { key: "memberBookings", label: "Member bookings", icon: "calendar-outline" },
   { key: "guestBookings", label: "Guest bookings", icon: "receipt-outline" },
   { key: "transfers", label: "Transfers", icon: "swap-horizontal-outline" },
+  { key: "matches", label: "Matches", icon: "tennisball-outline" },
+  { key: "rankings", label: "Rankings", icon: "trophy-outline" },
 ];
 
 /**
@@ -257,7 +270,61 @@ export default function PublicTeamScreen(): ReactElement {
           )}
         </>
       ) : null}
+
+      {section === "matches" ? (
+        <>
+          <SectionTitle label="Matches" />
+          {page.matches.length === 0 ? (
+            <EmptyState message="No matches yet." />
+          ) : (
+            <View>
+              {page.matches.map((match) => (
+                <ListItem
+                  key={match.id}
+                  title={matchTitle(match, nameOf)}
+                  subtitle={`${formatDateTime(match.playedAt)} · ${scoreLabel(match)}`}
+                  footer={
+                    <AvatarRow
+                      people={matchPlayerIds(match).map((pid) => ({ id: pid, name: nameOf(pid) }))}
+                    />
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </>
+      ) : null}
+
+      {section === "rankings" ? <Rankings matches={page.matches} nameOf={nameOf} /> : null}
     </Screen>
+  );
+}
+
+/** Pair standings, derived here from the matches the page already carries. */
+function Rankings({ matches, nameOf }: { matches: readonly MatchT[]; nameOf: (id: string) => string }): ReactElement {
+  const rankings = computePairRankings(matches);
+  return (
+    <>
+      <SectionTitle label="Pair rankings" />
+      {rankings.length === 0 ? (
+        <EmptyState message="No doubles matches yet." />
+      ) : (
+        <View>
+          {rankings.map((pair) => (
+            <ListItem
+              key={pair.key}
+              title={pairLabel(pair.playerIds, nameOf)}
+              subtitle={`${pair.won}W · ${pair.lost}L · ${pair.played} played`}
+              right={
+                <Text className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                  {`${Math.round(pair.winRate * 100)}%`}
+                </Text>
+              }
+            />
+          ))}
+        </View>
+      )}
+    </>
   );
 }
 
