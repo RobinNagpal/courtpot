@@ -81,4 +81,33 @@ describe("computePairRankings", () => {
   it("has nothing to rank without matches", () => {
     expect(computePairRankings([])).toEqual([]);
   });
+
+  it("collapses every ordering of the same two pairs into two rows", () => {
+    // Both orderings within each pair, and both pairs on both sides: 8 ways to
+    // write down the same fixture. If any of them keyed differently there would
+    // be more than two rows.
+    const orderings: MatchT[] = [
+      match([ADA, BO], [CY, DEE]),
+      match([BO, ADA], [CY, DEE]),
+      match([ADA, BO], [DEE, CY]),
+      match([BO, ADA], [DEE, CY]),
+      match([CY, DEE], [ADA, BO], "B"),
+      match([DEE, CY], [ADA, BO], "B"),
+      match([CY, DEE], [BO, ADA], "B"),
+      match([DEE, CY], [BO, ADA], "B"),
+    ];
+    const rankings = computePairRankings(orderings);
+    expect(rankings).toHaveLength(2);
+    // Ada & Bo won all eight, however each was written.
+    const adaBo = rankings.find((pair) => pair.key === pairKey([ADA, BO]));
+    expect(adaBo).toMatchObject({ played: 8, won: 8, lost: 0 });
+    expect(rankings.find((pair) => pair.key === pairKey([CY, DEE]))).toMatchObject({
+      played: 8,
+      won: 0,
+      lost: 8,
+    });
+    // And every row's ids come back in one settled order, not the order they
+    // arrived in.
+    expect(rankings.map((pair) => pair.playerIds)).toEqual(rankings.map((pair) => [...pair.playerIds].sort()));
+  });
 });
