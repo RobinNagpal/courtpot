@@ -87,6 +87,7 @@ export default function RootLayout(): ReactElement {
                 <Stack.Screen name="match/new" options={{ presentation: "modal", title: "Record match" }} />
                 <Stack.Screen name="match/[id]/index" options={{ title: "Match" }} />
                 <Stack.Screen name="match/[id]/edit" options={{ title: "Edit match" }} />
+                <Stack.Screen name="pair/[key]/index" options={{ title: "Pair" }} />
               </Stack>
             </AuthGate>
           </TeamProvider>

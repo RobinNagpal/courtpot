@@ -3,14 +3,14 @@ import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMatchMutations, useMatches } from "@courtpot/api";
-import { AvatarRow, Button, EmptyState, ErrorState, ListItem, LoadingState } from "@courtpot/ui";
+import { Button, EmptyState, ErrorState, LoadingState } from "@courtpot/ui";
 import { MatchRange } from "@courtpot/schemas";
 import { Screen } from "../components/Screen";
 import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
 import { RangeChips } from "../components/RangeChips";
-import { formatDateTime } from "../lib/date";
-import { matchPeople, matchTitle, matchesInRange, matchesPerson, scoreLabel } from "../lib/matches";
+import { MatchRow } from "../components/MatchRow";
+import { matchTitle, matchesInRange, matchesPerson, scoreLabel } from "../lib/matches";
 import { usePersonHref, usePersonNames, usePersonOptions } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
@@ -69,24 +69,20 @@ export default function MatchesScreen(): ReactElement {
       ) : (
         <View>
           {rows.map((match) => (
-            <ListItem
+            <MatchRow
               key={match.id}
-              title={matchTitle(match, nameOf)}
-              subtitle={`${formatDateTime(match.playedAt)} · ${scoreLabel(match)}`}
-              onPress={() => router.push(`/match/${match.id}`)}
-              footer={
-                <AvatarRow
-                  people={matchPeople(match, nameOf)}
-                  onPress={(personId) => {
-                    // Nothing happens for somebody we cannot identify, rather
-                    // than a confident jump to the wrong kind of page.
-                    const href = hrefFor(personId);
-                    if (href !== null) {
-                      router.push(href);
-                    }
-                  }}
-                />
-              }
+              match={match}
+              nameOf={nameOf}
+              onPressPair={(key) => router.push(`/pair/${key}`)}
+              onPressPerson={(personId) => {
+                // Nothing happens for somebody we cannot identify, rather than
+                // a confident jump to the wrong kind of page.
+                const href = hrefFor(personId);
+                if (href !== null) {
+                  router.push(href);
+                }
+              }}
+              onPressMatch={() => router.push(`/match/${match.id}`)}
               right={
                 <RowMenu
                   accessibilityLabel="Match actions"

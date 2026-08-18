@@ -15,9 +15,24 @@ export interface PairRanking {
   winRate: number;
 }
 
-/** Two ids in a fixed order, so a pair is the same pair whichever way it was entered. */
+/**
+ * Two ids in a fixed order, so a pair is the same pair whichever way it was
+ * entered. Joined with an underscore, which no UUID contains and every URL
+ * accepts unescaped — the key doubles as the pair's route.
+ */
 export function pairKey(playerIds: readonly string[]): string {
-  return [...playerIds].sort().join("|");
+  return [...playerIds].sort().join(PAIR_KEY_SEPARATOR);
+}
+
+export const PAIR_KEY_SEPARATOR = "_";
+
+/** The two ids a key was built from, or null if it does not name a pair. */
+export function pairKeyPlayers(key: string): [string, string] | null {
+  const [first, second, ...rest] = key.split(PAIR_KEY_SEPARATOR);
+  if (first === undefined || second === undefined || rest.length > 0) {
+    return null;
+  }
+  return [first, second];
 }
 
 interface Tally {
@@ -41,7 +56,7 @@ export function computePairRankings(matches: readonly MatchT[]): PairRanking[] {
     if (playerIds.length !== PAIR_SIZE || first === undefined || second === undefined) {
       return;
     }
-    const key = `${first}|${second}`;
+    const key = pairKey([first, second]);
     const tally = tallies.get(key) ?? { playerIds: [first, second], played: 0, won: 0 };
     tally.played += 1;
     tally.won += won ? 1 : 0;

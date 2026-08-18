@@ -1,5 +1,6 @@
 import { MatchRange, matchPlayerIds } from "@courtpot/schemas";
 import type { MatchSideT, MatchT } from "@courtpot/schemas";
+import { pairKey } from "@courtpot/domain";
 import { startOfTodayIso } from "./date";
 
 export type NameOf = (personId: string) => string;
@@ -56,4 +57,27 @@ export function rangeStart(range: MatchRange): string | null {
 export function matchesInRange(matches: readonly MatchT[], range: MatchRange): MatchT[] {
   const since = rangeStart(range);
   return since === null ? [...matches] : matches.filter((match) => match.playedAt >= since);
+}
+
+/**
+ * The pair this side is, or null when it is one player. Only pairs get a page:
+ * a solo player already has their own, and the rankings do not count singles.
+ */
+export function sidePairKey(side: MatchSideT): string | null {
+  return side.playerIds.length === 2 ? pairKey(side.playerIds) : null;
+}
+
+/** Every match this pair played, either side, newest first. */
+export function matchesForPair(matches: readonly MatchT[], key: string): MatchT[] {
+  return matches
+    .filter((match) => sidePairKey(match.sideA) === key || sidePairKey(match.sideB) === key)
+    .sort((a, b) => b.playedAt.localeCompare(a.playedAt) || a.id.localeCompare(b.id));
+}
+
+/** A pair's names, alphabetical, as the rest of the app writes them. */
+export function pairLabel(playerIds: readonly string[], nameOf: NameOf): string {
+  return playerIds
+    .map(nameOf)
+    .sort((a, b) => a.localeCompare(b))
+    .join(" & ");
 }
