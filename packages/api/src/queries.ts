@@ -105,12 +105,20 @@ export interface PairRankingsResult {
   isError: boolean;
 }
 
-/** Pair standings for one team, derived from the cached matches. */
-export function usePairRankings(teamId?: string): PairRankingsResult {
+/**
+ * Pair standings for one team, derived from the cached matches.
+ *
+ * `since` is an ISO instant to count from — omit it for all of history. The
+ * caller supplies it rather than a named range because "today" is the device's
+ * local day, which this package has no business deciding.
+ */
+export function usePairRankings(teamId?: string, since?: string): PairRankingsResult {
   const matches = useMatches();
   const rankings = useMemo(() => {
-    const rows = matches.data ?? [];
-    return computePairRankings(teamId === undefined ? rows : rows.filter((match) => match.teamId === teamId));
-  }, [matches.data, teamId]);
+    const rows = (matches.data ?? []).filter(
+      (match) => (teamId === undefined || match.teamId === teamId) && (since === undefined || match.playedAt >= since),
+    );
+    return computePairRankings(rows);
+  }, [matches.data, teamId, since]);
   return { rankings, isPending: matches.isPending, isError: matches.isError };
 }

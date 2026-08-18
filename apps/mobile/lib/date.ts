@@ -66,3 +66,14 @@ export function formatDateTime(iso: string): string {
   const month = MONTHS[at.getMonth()] ?? "";
   return `${at.getDate()} ${month} ${at.getFullYear()}, ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
+
+/**
+ * Local midnight this morning as a UTC instant, for "played today".
+ *
+ * The day is the device's, not UTC's: a 9pm match in UTC-5 is today for the
+ * person who played it even though it is already tomorrow in UTC.
+ */
+export function startOfTodayIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+}

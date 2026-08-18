@@ -3,7 +3,6 @@ import type { ReactElement } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { computePairRankings, memberBookingSplit } from "@courtpot/domain";
-import { matchPlayerIds } from "@courtpot/schemas";
 import type { BalanceT, MatchT, TeamPageT } from "@courtpot/schemas";
 import {
   Avatar,
@@ -26,7 +25,7 @@ import type { NavIconName } from "../../components/NavChips";
 import { useAuth } from "../../lib/auth";
 import { guestBookingSubtitle, guestLabel } from "../../lib/bookings";
 import { formatDateTime } from "../../lib/date";
-import { matchTitle, scoreLabel } from "../../lib/matches";
+import { matchPeople, matchTitle, scoreLabel } from "../../lib/matches";
 import { publicTeamApi, teamsApi } from "../../lib/storage";
 import { clearTeamPin, readTeamPin, saveTeamPin } from "../../lib/teamPin";
 
@@ -284,11 +283,7 @@ export default function PublicTeamScreen(): ReactElement {
                   key={match.id}
                   title={matchTitle(match, nameOf)}
                   subtitle={`${formatDateTime(match.playedAt)} · ${scoreLabel(match)}`}
-                  footer={
-                    <AvatarRow
-                      people={matchPlayerIds(match).map((pid) => ({ id: pid, name: nameOf(pid) }))}
-                    />
-                  }
+                  footer={<AvatarRow people={matchPeople(match, nameOf)} />}
                 />
               ))}
             </View>

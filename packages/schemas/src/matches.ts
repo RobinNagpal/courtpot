@@ -83,3 +83,11 @@ export function matchSide(match: MatchT, side: Side): MatchSideT {
 export function matchPlayerIds(match: MatchT): string[] {
   return [...match.sideA.playerIds, ...match.sideB.playerIds];
 }
+
+/** How much history a matches or rankings view covers. */
+export enum MatchRange {
+  Today = "Today",
+  AllTime = "AllTime",
+}
+
+export const MatchRangeSchema = z.nativeEnum(MatchRange);
