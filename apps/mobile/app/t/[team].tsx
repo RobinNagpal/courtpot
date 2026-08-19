@@ -20,12 +20,12 @@ import {
 import { Screen } from "../../components/Screen";
 import { FormError } from "../../components/FormError";
 import { NavChips } from "../../components/NavChips";
+import { MatchRow } from "../../components/MatchRow";
 import { PairRankingRows } from "../../components/PairRankingRows";
 import type { NavIconName } from "../../components/NavChips";
 import { useAuth } from "../../lib/auth";
 import { guestBookingSubtitle, guestLabel } from "../../lib/bookings";
-import { formatDateTime } from "../../lib/date";
-import { matchPeople, matchTitle, scoreLabel } from "../../lib/matches";
+
 import { publicTeamApi, teamsApi } from "../../lib/storage";
 import { clearTeamPin, readTeamPin, saveTeamPin } from "../../lib/teamPin";
 
@@ -279,12 +279,10 @@ export default function PublicTeamScreen(): ReactElement {
           ) : (
             <View>
               {page.matches.map((match) => (
-                <ListItem
-                  key={match.id}
-                  title={matchTitle(match, nameOf)}
-                  subtitle={`${formatDateTime(match.playedAt)} · ${scoreLabel(match)}`}
-                  footer={<AvatarRow people={matchPeople(match, nameOf)} />}
-                />
+                // The same row as the signed-in screens, minus the taps: this
+                // page is behind a PIN rather than a session, so it has no match
+                // or pair page to open.
+                <MatchRow key={match.id} match={match} nameOf={nameOf} />
               ))}
             </View>
           )}
