@@ -18,21 +18,8 @@ export function sideLabel(side: MatchSideT, nameOf: NameOf): string {
     .join(" & ");
 }
 
-export function matchTitle(match: MatchT, nameOf: NameOf): string {
-  return `${sideLabel(match.sideA, nameOf)} vs ${sideLabel(match.sideB, nameOf)}`;
-}
-
 export function scoreLabel(match: MatchT): string {
   return `${match.sideA.points}–${match.sideB.points}`;
-}
-
-/** Everyone who played, in the order the title reads them. */
-export function matchPeople(match: MatchT, nameOf: NameOf): { id: string; name: string }[] {
-  const side = (half: MatchSideT): { id: string; name: string }[] =>
-    half.playerIds
-      .map((personId) => ({ id: personId, name: nameOf(personId) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  return [...side(match.sideA), ...side(match.sideB)];
 }
 
 export function matchesPerson(match: MatchT, personId: string): boolean {
@@ -72,12 +59,4 @@ export function matchesForPair(matches: readonly MatchT[], key: string): MatchT[
   return matches
     .filter((match) => sidePairKey(match.sideA) === key || sidePairKey(match.sideB) === key)
     .sort((a, b) => b.playedAt.localeCompare(a.playedAt) || a.id.localeCompare(b.id));
-}
-
-/** A pair's names, alphabetical, as the rest of the app writes them. */
-export function pairLabel(playerIds: readonly string[], nameOf: NameOf): string {
-  return playerIds
-    .map(nameOf)
-    .sort((a, b) => a.localeCompare(b))
-    .join(" & ");
 }

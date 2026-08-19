@@ -2,15 +2,14 @@ import { useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
-import { useMatchMutations, useMatches } from "@courtpot/api";
+import { useMatches } from "@courtpot/api";
 import { Button, EmptyState, ErrorState, LoadingState } from "@courtpot/ui";
 import { MatchRange } from "@courtpot/schemas";
 import { Screen } from "../components/Screen";
-import { RowMenu } from "../components/RowMenu";
 import { ChipGroup } from "../components/ChipGroup";
 import { RangeChips } from "../components/RangeChips";
 import { MatchRow } from "../components/MatchRow";
-import { matchTitle, matchesInRange, matchesPerson, scoreLabel } from "../lib/matches";
+import { matchesInRange, matchesPerson } from "../lib/matches";
 import { usePersonHref, usePersonNames, usePersonOptions } from "../lib/people";
 import { useActiveTeamId } from "../lib/team";
 
@@ -18,7 +17,6 @@ export default function MatchesScreen(): ReactElement {
   const router = useRouter();
   const teamId = useActiveTeamId();
   const matches = useMatches();
-  const { remove } = useMatchMutations();
   const people = usePersonOptions();
   const names = usePersonNames();
   const hrefFor = usePersonHref();
@@ -83,23 +81,6 @@ export default function MatchesScreen(): ReactElement {
                 }
               }}
               onPressMatch={() => router.push(`/match/${match.id}`)}
-              right={
-                <RowMenu
-                  accessibilityLabel="Match actions"
-                  actions={[
-                    { label: "Edit", onPress: () => router.push(`/match/${match.id}/edit`) },
-                    {
-                      label: "Delete",
-                      destructive: true,
-                      confirm: {
-                        title: "Delete match?",
-                        message: `${matchTitle(match, nameOf)} — ${scoreLabel(match)}. This removes it from the rankings.`,
-                      },
-                      onPress: () => remove.mutate(match.id),
-                    },
-                  ]}
-                />
-              }
             />
           ))}
         </View>

@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
 import type { ReactElement } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMatches } from "@courtpot/api";
 import { computePairRankings, pairKeyPlayers } from "@courtpot/domain";
 import { MatchRange } from "@courtpot/schemas";
-import { EmptyState, ErrorState, LoadingState, SectionTitle } from "@courtpot/ui";
+import { EmptyState, ErrorState, LoadingState, SectionTitle, cardClass } from "@courtpot/ui";
 import { Screen } from "../../../components/Screen";
 import { Detail } from "../../../components/Detail";
-import { EntityHeading } from "../../../components/EntityHeading";
 import { MatchRow } from "../../../components/MatchRow";
+import { PlayerLines } from "../../../components/PlayerLines";
 import { RangeChips } from "../../../components/RangeChips";
-import { matchesForPair, matchesInRange, pairLabel } from "../../../lib/matches";
+import { matchesForPair, matchesInRange } from "../../../lib/matches";
 import { usePersonHref, usePersonNames } from "../../../lib/people";
 import { useActiveTeamId } from "../../../lib/team";
 
@@ -48,15 +48,26 @@ export default function PairViewScreen(): ReactElement {
   }
 
   const nameOf = (personId: string): string => names.get(personId) ?? "?";
-  const label = pairLabel(players, nameOf);
   // The pair's own line out of the standings for exactly these matches, so the
   // record here and on the rankings table can never disagree.
   const record = computePairRankings(theirs).find((pair) => pair.key === key);
 
   return (
     <Screen>
+      {/* A generic header, per the house rule: a long name truncated into
+          the title bar helps nobody. The names are in the content below. */}
       <Stack.Screen options={{ title: "Pair" }} />
-      <EntityHeading name={label} subtitle={record === undefined ? "No matches yet" : `${record.won}W · ${record.lost}L`} />
+      {/* The two names stacked rather than joined: full names wrap awkwardly
+          around an "&", and this reads the same as every other pair on screen. */}
+      <View className={`${cardClass} gap-2`}>
+        <PlayerLines
+          people={players.map((personId) => ({ id: personId, name: nameOf(personId) })).sort((a, b) => a.name.localeCompare(b.name))}
+          emphasis
+        />
+        <Text className="text-sm text-neutral-600 dark:text-neutral-400">
+          {record === undefined ? "No matches yet" : `${record.won}W · ${record.lost}L · ${record.played} played`}
+        </Text>
+      </View>
 
       <RangeChips range={range} onChange={setRange} />
 
