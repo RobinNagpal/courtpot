@@ -1,6 +1,9 @@
-# CI deploy user for GitHub Actions. Scoped to exactly the three things a
-# deploy does: sync the web bucket, invalidate the distribution, and push new
-# Lambda code. It cannot touch anything else in the account.
+# CI deploy user for GitHub Actions, scoped to exactly what a deploy does to
+# AWS: sync the web bucket and invalidate the distribution. It cannot touch
+# anything else in the account.
+#
+# The API half of a deploy no longer uses AWS credentials at all — it is an
+# rsync over SSH to the shared host, authorised by the SSH_PRIVATE_KEY secret.
 resource "aws_iam_user" "deployer" {
   name = "${var.app_name}-deployer"
   path = "/${var.app_name}/"
@@ -30,16 +33,6 @@ data "aws_iam_policy_document" "deployer" {
       "cloudfront:GetInvalidation",
     ]
     resources = [aws_cloudfront_distribution.web.arn]
-  }
-
-  statement {
-    sid = "UpdateLambdaCode"
-    actions = [
-      "lambda:UpdateFunctionCode",
-      "lambda:GetFunction",
-      "lambda:GetFunctionConfiguration",
-    ]
-    resources = [aws_lambda_function.api.arn]
   }
 }
 

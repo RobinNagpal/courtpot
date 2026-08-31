@@ -154,6 +154,11 @@ web-build/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Saved plan files: they embed every value the plan touched, including the
+# generated SSH private key, so they must never be committed.
+tfplan
+*.tfplan
 *.tfvars
 crash.log
 .envrc

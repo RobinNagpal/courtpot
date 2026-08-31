@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.80"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.6"
-    }
   }
 
   # State lives in a private, versioned, SSE-encrypted S3 bucket created by

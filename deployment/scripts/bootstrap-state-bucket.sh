@@ -2,11 +2,18 @@
 # One-time, idempotent: creates the private, versioned, encrypted S3 bucket
 # that holds the Terraform state, then prints the terraform init command.
 # Run with admin credentials before the first `terraform init`.
+#
+#   bootstrap-state-bucket.sh              # courtpot-tfstate-<account-id>,   deployment/terraform
+#   bootstrap-state-bucket.sh shared-host  # shared-host-tfstate-<account-id>, deployment/terraform/shared-host
+#
+# The shared host gets its own bucket rather than living under courtpot's
+# because it belongs to neither application — interestled reads that same state.
 set -euo pipefail
 
+prefix="${1:-courtpot}"
 region="${AWS_DEFAULT_REGION:-us-east-1}"
 account_id="$(aws sts get-caller-identity --query Account --output text)"
-bucket="courtpot-tfstate-$account_id"
+bucket="$prefix-tfstate-$account_id"
 
 if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
   echo "Bucket $bucket already exists — skipping creation."

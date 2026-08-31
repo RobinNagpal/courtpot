@@ -16,22 +16,19 @@ variable "domain_name" {
   default     = "courtpot.com"
 }
 
-variable "database_url" {
+variable "shared_host_state_bucket" {
   description = <<-EOT
-    Postgres connection string for the API Lambda. May be left empty at first
-    apply — the function's environment is in `ignore_changes`, so a value set
-    later in the AWS console (or via `aws lambda update-function-configuration`)
-    survives future applies.
+    Terraform state bucket of the shared Lightsail host, read to find the
+    instance's static IP. The host is shared with interestled, so its state
+    lives under neither project's name — create it with
+    `deployment/scripts/bootstrap-state-bucket.sh shared-host`.
+
+    No database or LLM settings appear in this stack any more: the API is a
+    process on that host, and its environment is written to /etc/courtpot-api.env
+    by the deploy workflow from repository secrets.
   EOT
   type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "lambda_memory_mb" {
-  description = "Memory for the API Lambda (CPU scales with it)."
-  type        = number
-  default     = 512
+  default     = "shared-host-tfstate-729763663166"
 }
 
 variable "create_deployer_access_key" {

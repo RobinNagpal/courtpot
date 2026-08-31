@@ -13,14 +13,14 @@ output "cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.web.id
 }
 
-output "lambda_function_name" {
-  description = "API Lambda function name (the deploy workflow hardcodes this)."
-  value       = aws_lambda_function.api.function_name
+output "api_origin_host" {
+  description = "Hostname CloudFront sends /api/* to. Caddy on the shared host terminates it."
+  value       = local.api_host
 }
 
-output "lambda_function_url" {
-  description = "Stable direct URL of the API Lambda (CloudFront fronts it as /api/*)."
-  value       = aws_lambda_function_url.api.function_url
+output "shared_host_ip" {
+  description = "Static IP of the shared Lightsail instance — the DEPLOY_HOST Actions variable."
+  value       = data.terraform_remote_state.shared_host.outputs.static_ip
 }
 
 output "deployer_access_key_id" {
@@ -32,9 +32,4 @@ output "deployer_secret_access_key" {
   description = "Set as the AWS_SECRET_ACCESS_KEY GitHub Actions secret."
   value       = var.create_deployer_access_key ? aws_iam_access_key.deployer[0].secret : null
   sensitive   = true
-}
-
-output "set_database_url_command" {
-  description = "Run this once (with admin credentials) to point the API at your Postgres."
-  value       = "aws lambda update-function-configuration --function-name ${aws_lambda_function.api.function_name} --environment 'Variables={DATABASE_URL=<your-postgres-url>}'"
 }

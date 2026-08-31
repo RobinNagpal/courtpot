@@ -2,9 +2,9 @@ locals {
   s3_origin_id  = "web-s3"
   api_origin_id = "api-lambda"
 
-  # aws_lambda_function_url.function_url is "https://<id>.lambda-url.<region>.on.aws/";
-  # CloudFront wants just the hostname.
-  api_origin_domain = trimsuffix(trimprefix(aws_lambda_function_url.api.function_url, "https://"), "/")
+  # The shared Lightsail host, reached over https on the hostname Caddy holds a
+  # certificate for. Defined in api-origin.tf alongside the record that resolves it.
+  api_origin_domain = local.api_host
 
   # AWS-managed policies (fixed, documented IDs).
   cache_policy_caching_optimized = "658327ea-f89d-4fab-a63d-7e88639e58f6"
@@ -125,4 +125,10 @@ resource "aws_cloudfront_distribution" "web" {
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
   }
+
+  # The API origin is a hostname rather than an AWS resource, so nothing else
+  # ties the two together: without this the distribution can go live pointing at
+  # a name that does not resolve yet, and Caddy cannot obtain its certificate
+  # until it does.
+  depends_on = [aws_route53_record.api]
 }
