@@ -79,26 +79,38 @@ resource "aws_lightsail_static_ip_attachment" "host" {
 # matches what the Lambda Function URL it replaces already allowed: the API's
 # own bearer-token auth is the access control, and locking the origin to
 # CloudFront would also lock out `curl` when diagnosing a bad deploy.
+#
+# cidrs and ipv6_cidrs are stated rather than left to default. Lightsail fills
+# them in with "open to the world" either way, but omitting them makes every
+# subsequent plan want to replace this resource — and replacing it means
+# destroying every rule before recreating it, which drops SSH and HTTPS for the
+# moment in between.
 resource "aws_lightsail_instance_public_ports" "host" {
   instance_name = aws_lightsail_instance.host.name
 
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
+    protocol   = "tcp"
+    from_port  = 22
+    to_port    = 22
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 
   # Needed by Let's Encrypt's HTTP-01 challenge as well as by Caddy's
   # redirect to https.
   port_info {
-    protocol  = "tcp"
-    from_port = 80
-    to_port   = 80
+    protocol   = "tcp"
+    from_port  = 80
+    to_port    = 80
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 
   port_info {
-    protocol  = "tcp"
-    from_port = 443
-    to_port   = 443
+    protocol   = "tcp"
+    from_port  = 443
+    to_port    = 443
+    cidrs      = ["0.0.0.0/0"]
+    ipv6_cidrs = ["::/0"]
   }
 }
