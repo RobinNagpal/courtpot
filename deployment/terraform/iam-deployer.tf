@@ -5,8 +5,9 @@
 # The API half of a deploy no longer uses AWS credentials at all — it is an
 # rsync over SSH to the shared host, authorised by the SSH_PRIVATE_KEY secret.
 resource "aws_iam_user" "deployer" {
-  name = "${var.app_name}-deployer"
-  path = "/${var.app_name}/"
+  name                 = "${var.app_name}-deployer"
+  path                 = "/${var.app_name}/"
+  permissions_boundary = local.permissions_boundary
 }
 
 data "aws_iam_policy_document" "deployer" {

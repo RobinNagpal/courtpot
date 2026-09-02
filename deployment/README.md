@@ -55,6 +55,40 @@ the same exposure the Lambda Function URL it replaced already had
 the access control. Locking port 443 to CloudFront's published ranges would
 also lock out `curl` when diagnosing a bad deploy, which is when you need it.
 
+## The credential Terraform runs as
+
+`terraform apply` for this stack runs as **courtpot-infra**, not an account
+administrator. That user is created by
+[deployment/terraform/infra-identity](terraform/infra-identity/README.md),
+which is a separate stack applied by an administrator — a user that could apply
+the stack defining its own policy could widen it.
+
+It carries a **permissions boundary**, and that is the load-bearing part rather
+than the narrow policy. This stack creates IAM users, so its credential needs
+`iam:CreateUser`, `iam:PutUserPolicy` and `iam:CreateAccessKey` — and anything
+holding those three can mint itself an administrator. The boundary caps every
+principal created here, denies `iam:*` outright, and cannot be edited or
+detached by the user subject to it. Verified by attempting it: creating an
+unbounded user, rewriting the boundary, stripping it off an existing user, and
+attaching `AdministratorAccess` are all denied, as is reaching the shared RDS
+or another project's bucket.
+
+The key belongs in `~/.aws/credentials` as a named profile, and `.envrc` sets
+`AWS_PROFILE=courtpot-infra` — nothing else. An `AWS_ACCESS_KEY_ID` in the
+environment takes precedence over a profile *and* over `--profile`, so a key
+exported there would silently override the scoped identity it replaced.
+
+```sh
+cd deployment/terraform/infra-identity
+terraform init -backend-config="bucket=courtpot-tfstate-<account-id>"
+terraform apply                                    # as an administrator, once
+terraform output -raw infra_access_key_id
+terraform output -raw infra_secret_access_key
+```
+
+Two things stay an administrator's job: this stack, and the shared Lightsail
+host, which belongs to neither application.
+
 ## One-time setup
 
 Run Terraform with **admin** credentials (your own, not the deployer's). State

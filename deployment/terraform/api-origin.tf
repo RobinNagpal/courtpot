@@ -16,6 +16,20 @@ data "terraform_remote_state" "shared_host" {
 }
 
 locals {
+  /**
+   * Ceiling on the IAM user this stack creates. It is what makes it safe for
+   * this stack to be applied by courtpot-infra rather than an account
+   * administrator: that user can create principals here, but never ones that
+   * can do more than this policy allows.
+   *
+   * Created by deployment/terraform/infra-identity, which has to be applied
+   * first — the name and path are fixed there, so this is derived rather than
+   * passed in and there is nothing to keep in step.
+   */
+  permissions_boundary = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${var.app_name}/${var.app_name}-boundary"
+}
+
+locals {
   # Caddy on the shared host holds a Let's Encrypt certificate for this name and
   # reverse-proxies it to the courtpot API's own port. It must match the
   # api_host in the shared-host stack's `apps` variable.
