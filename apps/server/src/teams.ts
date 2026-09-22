@@ -179,6 +179,7 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
       return c.json({ error: "Only an Admin can create teams" }, 403);
     }
     const body = c.req.valid("json");
+    const creatorId = c.get("memberId");
     const team = Team.parse(
       await db.team.create({
         data: {
@@ -186,16 +187,31 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
           name: body.name,
           slug: body.slug,
           pin: body.pin ?? generatePin(),
+          // The creator joins the team in the same nested write, so a team is
+          // never born with nobody in it. "Your teams" is the only team list the
+          // app has and it reads team_members, so a team its creator does not
+          // belong to is invisible to them the moment it exists — including the
+          // Admin who just made it. Admin rather than TeamMemberAdmin, matching
+          // what `pnpm team:add` gives a platform Admin inside a team.
+          members: { create: { memberId: creatorId, role: Role.Admin } },
         },
       }),
     );
     await recordAudit(db, {
-      actorId: c.get("memberId"),
+      actorId: creatorId,
       actorName: c.get("actorName"),
       action: AuditAction.Create,
       entity: AuditEntity.Team,
       entityId: team.id,
       row: team,
+    });
+    await recordAudit(db, {
+      actorId: creatorId,
+      actorName: c.get("actorName"),
+      action: AuditAction.Create,
+      entity: AuditEntity.TeamMembership,
+      entityId: `${team.id}:${creatorId}`,
+      row: { teamId: team.id, memberId: creatorId, role: Role.Admin },
     });
     return c.json(team, 201);
   });

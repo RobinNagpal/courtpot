@@ -88,7 +88,12 @@ export function sessionRouter(db: Db): Hono<AuthEnv> {
     return c.json(
       MemberTeam.array().parse(
         rows
-          .map((row) => ({ id: row.team.id, name: row.team.name, role: RoleSchema.parse(row.role) }))
+          // Spread the team rather than picking fields one by one: `slug` was
+          // left out here, and Team.slug's `.default(null)` let the parse fill
+          // it back in instead of failing, so every team looked like it had no
+          // page address. Zod strips what MemberTeam does not declare, so the
+          // PIN cannot ride along.
+          .map((row) => ({ ...row.team, role: RoleSchema.parse(row.role) }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       ),
     );
