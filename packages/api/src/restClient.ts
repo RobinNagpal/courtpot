@@ -8,6 +8,7 @@ import {
   MemberBooking,
   MemberTeam,
   Team,
+  TeamMembership,
   TeamPage,
   Transfer,
 } from "@courtpot/schemas";
@@ -18,6 +19,8 @@ import type {
   MemberTeamT,
   TeamCreateT,
   TeamEditT,
+  TeamMemberAddT,
+  TeamMembershipT,
   TeamPageT,
   TeamT,
 } from "@courtpot/schemas";
@@ -137,10 +140,14 @@ export function createAuthApi(config: RestClientConfig): AuthApi {
 export interface TeamsApi {
   /** The signed-in member's teams, with their role in each. */
   mine(): Promise<MemberTeamT[]>;
+  /** Every team on the platform. Admin-only — 403 for anyone else. */
+  all(): Promise<TeamT[]>;
   /** Mark a team as the one to land on at login. */
   setDefault(teamId: string): Promise<MemberT>;
   edit(teamId: string, input: TeamEditT): Promise<TeamT>;
   create(input: TeamCreateT): Promise<TeamT>;
+  /** Allocate someone to a team, creating the member if they are new. */
+  addMember(teamId: string, input: TeamMemberAddT): Promise<TeamMembershipT>;
   /** The read-only team page via the session, so no PIN is needed. */
   page(handle: string): Promise<TeamPageT>;
 }
@@ -154,10 +161,13 @@ export function createTeamsApi(config: RestClientConfig): TeamsApi {
   };
   return {
     mine: async () => (await request(config, "/api/auth/session/teams", "GET", MemberTeam.array())) ?? [],
+    all: async () => (await request(config, "/api/teams", "GET", Team.array())) ?? [],
     setDefault: async (teamId) =>
       require(await request(config, "/api/auth/session/default-team", "PUT", Member, { teamId })),
     edit: async (teamId, input) => require(await request(config, `/api/teams/${teamId}`, "PUT", Team, input)),
     create: async (input) => require(await request(config, "/api/teams", "POST", Team, input)),
+    addMember: async (teamId, input) =>
+      require(await request(config, `/api/teams/${teamId}/members`, "POST", TeamMembership, input)),
     page: async (handle) => require(await request(config, `/api/teams/${handle}/page`, "GET", TeamPage)),
   };
 }

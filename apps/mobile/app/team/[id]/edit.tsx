@@ -12,19 +12,22 @@ import { useTeam } from "../../../lib/team";
 export default function TeamEditScreen(): ReactElement {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { teams, refresh } = useTeam();
+  const { teams, allTeams, refresh } = useTeam();
   const { member } = useAuth();
-  const team = teams.find((row) => row.id === id);
+  // Same lookup as the team view: membership first, then the Admin-only list of
+  // every team, so an Admin can rename a team they do not belong to.
+  const membership = teams.find((row) => row.id === id) ?? null;
+  const team = membership ?? allTeams.find((row) => row.id === id) ?? null;
 
   const [name, setName] = useState<string | null>(null);
   const [slug, setSlug] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  if (team === undefined) {
+  if (team === null) {
     return <ErrorState message="Team not found, or you are not on it." />;
   }
-  if (!(member?.role === Role.Admin || team.role === Role.TeamMemberAdmin)) {
+  if (!(member?.role === Role.Admin || membership?.role === Role.TeamMemberAdmin)) {
     return <ErrorState message="Only an admin of this team can edit it." />;
   }
 

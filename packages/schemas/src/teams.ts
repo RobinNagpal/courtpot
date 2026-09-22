@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Uuid } from "./ids";
-import { Pin } from "./auth";
+import { Pin, Username } from "./auth";
 import { Balance, GuestBooking, IsoDate, MemberBooking, PositiveCents } from "./costSplitting";
 import { Match } from "./matches";
 import { Role, RoleSchema } from "./roles";
@@ -61,6 +61,19 @@ export const TeamMembership = z.object({
 });
 
 /**
+ * Allocating someone to a team: an existing member named by `memberId` or
+ * `username`, or a brand new one given `name` + `username`. A `pin` is only
+ * ever accepted for a member being created — see `canSetPin`.
+ */
+export const TeamMemberAdd = z.object({
+  role: RoleSchema.default(Role.TeamMember),
+  memberId: Uuid.optional(),
+  name: z.string().trim().min(1).optional(),
+  username: Username.optional(),
+  pin: Pin.optional(),
+});
+
+/**
  * A person on the public team page: id and name only. Roles, usernames and
  * anything else stay out — whoever holds the team PIN is not necessarily a
  * member, so this is the minimum needed to read the ledger.
@@ -108,6 +121,7 @@ export type SlugT = z.infer<typeof Slug>;
 export type TeamUnlockInputT = z.infer<typeof TeamUnlockInput>;
 export type SetDefaultTeamInputT = z.infer<typeof SetDefaultTeamInput>;
 export type TeamMembershipT = z.infer<typeof TeamMembership>;
+export type TeamMemberAddT = z.infer<typeof TeamMemberAdd>;
 export type PublicPersonT = z.infer<typeof PublicPerson>;
 export type PublicTransferT = z.infer<typeof PublicTransfer>;
 export type TeamPageT = z.infer<typeof TeamPage>;
