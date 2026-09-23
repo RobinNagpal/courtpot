@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
 import { Action, can, canSetPin, computeBalances } from "@courtpot/domain";
 import {
   AuditAction,
@@ -10,34 +9,24 @@ import {
   GuestBooking,
   Member,
   MemberBooking,
-  Pin,
   Role,
   RoleSchema,
   Team,
   TeamCreate,
   TeamEdit,
+  TeamMemberAdd,
   TeamMembership,
   TeamPage,
   TeamUnlockInput,
   TeamWithPin,
   Transfer,
-  Username,
 } from "@courtpot/schemas";
-import type { RoleT } from "@courtpot/schemas";
+import type { RoleT, TeamMemberAddT } from "@courtpot/schemas";
 import { recordAudit } from "./audit";
 import { toMatch } from "./matchRows";
 import type { AuthEnv } from "./auth";
 import type { Db } from "./db";
 import { generatePin } from "./pin";
-
-/** Adding someone to a team: an existing member by id, or a brand new one. */
-const AddTeamMember = z.object({
-  role: RoleSchema.default(Role.TeamMember),
-  memberId: z.string().uuid().optional(),
-  name: z.string().trim().min(1).optional(),
-  username: Username.optional(),
-  pin: Pin.optional(),
-});
 
 /** Composite primary key lookup for the team_members join table. */
 const membershipKey = (
@@ -130,7 +119,17 @@ async function loadTeamPage(
 export function teamsRouter(db: Db): Hono<AuthEnv> {
   const router = new Hono<AuthEnv>();
 
-  router.get("/", async (c) => c.json(Team.array().parse(await db.team.findMany({ orderBy: { name: "asc" } }))));
+  /**
+   * Every team on the platform. Admin-only: a member's own teams come from
+   * /api/auth/session/teams, and this is the list that lets an Admin reach a
+   * team they are not on — to rename it, or to put themselves in it.
+   */
+  router.get("/", async (c) => {
+    if (!can(c.get("role"), Action.ManageTeams)) {
+      return c.json({ error: "Only an Admin can list every team" }, 403);
+    }
+    return c.json(Team.array().parse(await db.team.findMany({ orderBy: { name: "asc" } })));
+  });
 
   /** Admin-only: the same list including each team's PIN, so it can be handed out. */
   router.get("/with-pins", async (c) => {
@@ -179,6 +178,7 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
       return c.json({ error: "Only an Admin can create teams" }, 403);
     }
     const body = c.req.valid("json");
+    const creatorId = c.get("memberId");
     const team = Team.parse(
       await db.team.create({
         data: {
@@ -186,16 +186,31 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
           name: body.name,
           slug: body.slug,
           pin: body.pin ?? generatePin(),
+          // The creator joins the team in the same nested write, so a team is
+          // never born with nobody in it. "Your teams" is the only team list the
+          // app has and it reads team_members, so a team its creator does not
+          // belong to is invisible to them the moment it exists — including the
+          // Admin who just made it. Admin rather than TeamMemberAdmin, matching
+          // what `pnpm team:add` gives a platform Admin inside a team.
+          members: { create: { memberId: creatorId, role: Role.Admin } },
         },
       }),
     );
     await recordAudit(db, {
-      actorId: c.get("memberId"),
+      actorId: creatorId,
       actorName: c.get("actorName"),
       action: AuditAction.Create,
       entity: AuditEntity.Team,
       entityId: team.id,
       row: team,
+    });
+    await recordAudit(db, {
+      actorId: creatorId,
+      actorName: c.get("actorName"),
+      action: AuditAction.Create,
+      entity: AuditEntity.TeamMembership,
+      entityId: `${team.id}:${creatorId}`,
+      row: { teamId: team.id, memberId: creatorId, role: Role.Admin },
     });
     return c.json(team, 201);
   });
@@ -231,7 +246,7 @@ export function teamsRouter(db: Db): Hono<AuthEnv> {
    * TeamMemberAdmin only for a team they belong to. Creating a new member here
    * may set an initial PIN — attaching an existing member never may.
    */
-  router.post("/:teamId/members", zValidator("json", AddTeamMember), async (c) => {
+  router.post("/:teamId/members", zValidator("json", TeamMemberAdd), async (c) => {
     const teamId = c.req.param("teamId");
     const body = c.req.valid("json");
     const actingRole = c.get("role");
@@ -309,7 +324,7 @@ interface RouteError {
  */
 async function resolveMember(
   db: Db,
-  body: z.infer<typeof AddTeamMember>,
+  body: TeamMemberAddT,
   callerRole: RoleT,
 ): Promise<string | RouteError> {
   const existing =

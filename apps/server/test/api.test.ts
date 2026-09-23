@@ -372,6 +372,8 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
 
   describe("teams and roles", () => {
     const teamId = randomUUID();
+    // A team nobody belongs to, created straight in the database.
+    const orphanTeamId = randomUUID();
     let viewerToken: string;
 
     const login = async (username: string, pin: string): Promise<string> => {
@@ -393,6 +395,20 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(await res.text()).not.toContain("1947");
       const list = await (await app.request("/api/teams", authed())).text();
       expect(list).not.toContain("pin");
+    });
+
+    it("puts the creating Admin in the new team, so their own team list shows it", async () => {
+      // Without this the team exists but belongs to nobody, and "Your teams" —
+      // the only team list the app has — stays empty for the Admin who made it.
+      const membership = await db.teamMember.findUnique({
+        where: { teamId_memberId: { teamId, memberId: aliceId } },
+      });
+      expect(membership?.role).toBe(Role.Admin);
+
+      const res = await app.request("/api/auth/session/teams", authed());
+      expect(res.status).toBe(200);
+      const teams = (await res.json()) as { id: string; role: string }[];
+      expect(teams.find((t) => t.id === teamId)?.role).toBe(Role.Admin);
     });
 
     it("opens the team page with the right PIN and no member login", async () => {
@@ -452,6 +468,29 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(bySlug.status).toBe(200);
       // The page must report the slug it was reached by, not null.
       expect(((await bySlug.json()) as { team: { slug: string } }).team.slug).toBe("test-squad");
+    });
+
+    it("lists every team for an Admin, including ones they are not on", async () => {
+      // A team with no members at all — what every team created before the
+      // creator was put in their own looks like. "Your teams" cannot show it.
+      await db.team.create({ data: { id: orphanTeamId, name: "Orphan Team", pin: "3333" } });
+
+      const all = (await (await app.request("/api/teams", authed())).json()) as { id: string }[];
+      expect(all.map((t) => t.id)).toContain(orphanTeamId);
+
+      const own = (await (await app.request("/api/auth/session/teams", authed())).json()) as { id: string }[];
+      expect(own.map((t) => t.id)).not.toContain(orphanTeamId);
+    });
+
+    it("carries the slug in the caller's own team list, and never the PIN", async () => {
+      const res = await app.request("/api/auth/session/teams", authed());
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).not.toContain("pin");
+      const teams = JSON.parse(body) as { id: string; slug: string | null }[];
+      // Team.slug defaults to null, so dropping it here reads as "no page
+      // address" rather than failing the parse — assert the real value.
+      expect(teams.find((t) => t.id === teamId)?.slug).toBe("test-squad");
     });
 
     it("rejects a slug with illegal characters", async () => {
@@ -603,6 +642,13 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
       expect(write.status).toBe(403);
     });
 
+    it("stops a non-Admin listing every team", async () => {
+      const res = await app.request("/api/teams", {
+        headers: { authorization: `Bearer ${viewerToken}` },
+      });
+      expect(res.status).toBe(403);
+    });
+
     it("stops a non-Admin creating a team", async () => {
       const res = await app.request("/api/teams", {
         method: "POST",
@@ -610,6 +656,21 @@ describe.skipIf(!hasDb)("cost-splitting API", () => {
         body: JSON.stringify({ id: randomUUID(), name: "Breakaway club", pin: "9090" }),
       });
       expect(res.status).toBe(403);
+    });
+
+    it("lets an Admin put themselves in a team they are not on", async () => {
+      // The way out of a memberless team without reaching for the operator CLI.
+      const res = await app.request(`/api/teams/${orphanTeamId}/members`, {
+        ...authed("POST"),
+        body: JSON.stringify({ memberId: aliceId, role: Role.Admin }),
+      });
+      expect(res.status).toBe(201);
+
+      const own = (await (await app.request("/api/auth/session/teams", authed())).json()) as {
+        id: string;
+        role: string;
+      }[];
+      expect(own.find((t) => t.id === orphanTeamId)?.role).toBe(Role.Admin);
     });
 
     it("stops a TeamMemberAdmin resetting an existing member's PIN", async () => {

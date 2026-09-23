@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SOLO_TEAM_ID } from "@courtpot/schemas";
-import type { MemberTeamT } from "@courtpot/schemas";
+import { Role, SOLO_TEAM_ID } from "@courtpot/schemas";
+import type { MemberTeamT, TeamT } from "@courtpot/schemas";
 import { isRemote } from "./config";
 import { teamsApi } from "./storage";
 import { useAuth } from "./auth";
@@ -16,6 +16,12 @@ interface TeamContextValue {
   /** False until the caller's teams have been loaded. */
   ready: boolean;
   teams: MemberTeamT[];
+  /**
+   * Every team on the platform, for a platform Admin only — empty for everyone
+   * else. `teams` is membership-based, so without this an Admin has no way to
+   * see, reach or manage a team they do not belong to.
+   */
+  allTeams: TeamT[];
   activeTeamId: string;
   activeTeam: MemberTeamT | null;
   /** The team the member lands on at login, if they have marked one. */
@@ -34,9 +40,11 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
   const { signedIn, member, refreshMember } = useAuth();
   const [ready, setReady] = useState(!isRemote);
   const [teams, setTeams] = useState<MemberTeamT[]>(SOLO_TEAM);
+  const [allTeams, setAllTeams] = useState<TeamT[]>([]);
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const defaultTeamId = member?.defaultTeamId ?? null;
+  const isPlatformAdmin = member?.role === Role.Admin;
 
   useEffect(() => {
     if (!isRemote || teamsApi === null || !signedIn) {
@@ -44,11 +52,15 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
     }
     setReady(false);
     void (async () => {
-      const [mine, stored] = await Promise.all([
+      const [mine, everyTeam, stored] = await Promise.all([
         teamsApi.mine().catch((): MemberTeamT[] => []),
+        // Admin-only server side: not asking at all beats a guaranteed 403, and
+        // an empty list is the honest answer for anyone who may not see them.
+        isPlatformAdmin ? teamsApi.all().catch((): TeamT[] => []) : Promise.resolve<TeamT[]>([]),
         AsyncStorage.getItem(STORAGE_KEY),
       ]);
       setTeams(mine);
+      setAllTeams(everyTeam);
       const isMine = (id: string | null): boolean => id !== null && mine.some((t) => t.id === id);
       // A marked default wins, then the last choice, then the only team.
       setChosenId(
@@ -62,7 +74,7 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
       );
       setReady(true);
     })();
-  }, [signedIn, defaultTeamId, reloadKey]);
+  }, [signedIn, defaultTeamId, isPlatformAdmin, reloadKey]);
 
   const markDefault = useCallback(
     async (teamId: string): Promise<void> => {
@@ -82,6 +94,7 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
       return {
         ready: true,
         teams: SOLO_TEAM,
+        allTeams: [],
         activeTeamId: SOLO_TEAM_ID,
         activeTeam: null,
         defaultTeamId: null,
@@ -95,6 +108,7 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
     return {
       ready,
       teams,
+      allTeams,
       activeTeamId: active?.id ?? "",
       activeTeam: active,
       defaultTeamId,
@@ -103,7 +117,7 @@ export function TeamProvider({ children }: { children: ReactNode }): ReactElemen
       markDefault,
       refresh: () => setReloadKey((k) => k + 1),
     };
-  }, [ready, teams, chosenId, defaultTeamId, setActiveTeam, markDefault]);
+  }, [ready, teams, allTeams, chosenId, defaultTeamId, setActiveTeam, markDefault]);
 
   return <TeamContext.Provider value={value}>{children}</TeamContext.Provider>;
 }

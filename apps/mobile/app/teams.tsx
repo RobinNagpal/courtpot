@@ -18,12 +18,15 @@ import { useTeam } from "../lib/team";
  */
 export default function TeamsScreen(): ReactElement {
   const router = useRouter();
-  const { teams, activeTeamId, defaultTeamId, setActiveTeam, markDefault, refresh } = useTeam();
+  const { teams, allTeams, activeTeamId, defaultTeamId, setActiveTeam, markDefault, refresh } = useTeam();
   const { member } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isPlatformAdmin = member?.role === Role.Admin;
+  // Teams that exist but have no membership row for this Admin. Before the
+  // creator was put in their own team these were unreachable entirely.
+  const otherTeams = allTeams.filter((team) => !teams.some((own) => own.id === team.id));
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     try {
@@ -91,6 +94,46 @@ export default function TeamsScreen(): ReactElement {
       )}
 
       <FormError message={error} />
+
+      {isPlatformAdmin && otherTeams.length > 0 ? (
+        <>
+          <SectionTitle label="Teams you are not on" />
+          <View>
+            {otherTeams.map((team) => (
+              <ListItem
+                key={team.id}
+                title={team.name}
+                subtitle={`Not a member${team.slug === null ? "" : ` · /t/${team.slug}`}`}
+                onPress={() => router.push(`/team/${team.id}`)}
+                right={
+                  <RowMenu
+                    accessibilityLabel={`Actions for ${team.name}`}
+                    actions={[
+                      {
+                        label: "Join as admin",
+                        confirm: {
+                          title: "Join this team?",
+                          message: `Add yourself to "${team.name}" as Admin.`,
+                        },
+                        onPress: () => {
+                          const api = teamsApi;
+                          const memberId = member?.id;
+                          if (api === null || memberId === undefined) {
+                            setError("Teams can only be joined in server mode.");
+                            return;
+                          }
+                          void run(() => api.addMember(team.id, { memberId, role: Role.Admin }));
+                        },
+                      },
+                      { label: "Edit", onPress: () => router.push(`/team/${team.id}/edit`) },
+                    ]}
+                  />
+                }
+              />
+            ))}
+          </View>
+        </>
+      ) : null}
 
       {isPlatformAdmin ? (
         <>
