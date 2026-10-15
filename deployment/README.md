@@ -14,14 +14,26 @@ box, one application per port:
 
 ```
                     shared Lightsail instance  (13.216.34.24, medium_3_0)
-                    ┌──────────────────────────────────────────────┐
-courtpot.com     ──▶│ Caddy :443   api.courtpot.com    → :7071      │
-  CloudFront        │  (Let's       api.interestled.com → :7072      │
-                    │   Encrypt)                                    │
-interestled.com  ──▶│ systemd  courtpot-api.service    :7071        │
-  CloudFront        │ systemd  interestled-api.service :7072        │
-                    └──────────────────────────────────────────────┘
+                    ┌──────────────────────────────────────────────────────┐
+courtpot.com     ──▶│ Caddy :443   api.courtpot.com           → :7071      │
+  CloudFront        │  (Let's       api.interestled.com        → :7072      │
+                    │   Encrypt)    tidbitshub.org, *.tidbits… → :7073      │
+interestled.com  ──▶│               simulations.koalagains.com → :7074      │
+  CloudFront        │ systemd  courtpot-api.service    :7071                │
+                    │ systemd  interestled-api.service :7072                │
+tidbitshub.org   ──▶│ systemd  academy-ui-api.service  :7073  (Next.js)     │
+simulations.     ──▶│ systemd  simulations-api.service :7074  (Next.js)     │
+ koalagains.com     └──────────────────────────────────────────────────────┘
+  (direct, no CDN)
 ```
+
+`academy-ui` and `simulations` are Next.js servers from
+[dodao-ui](https://github.com/RobinNagpal/dodao-ui) (its
+`deployments/shared-host-apps` holds their DNS, workflows and runbook). They
+have no CloudFront: their A records point straight at the static IP and Caddy
+serves the whole site. `www.tidbitshub.org` is a 308 to the apex, and every
+other `<space>.tidbitshub.org` is served with an **on-demand** certificate — see
+[Optional per-application settings](#optional-per-application-settings).
 
 **Only the instance is shared.** Each project keeps its own distribution,
 bucket, certificate, Route 53 zone and deployer user, so the two never contend
@@ -185,24 +197,73 @@ curl localhost:7071/health             # this API, bypassing Caddy
 
 **Adding an application, or changing a port**, is an edit to the `apps` map in
 `terraform/shared-host/variables.tf` — but apply it by re-running the script on
-the box, not with `terraform apply`. The map is part of `user_data`, and
-changing `user_data` destroys and recreates the instance:
+the box, not with `terraform apply`. The map and the script are both part of
+`user_data`, which only runs at first boot; `instance.tf` ignores changes to it
+so an apply can no longer recreate the instance over one, which also means an
+apply does not touch the running host at all.
+
+Copy the current script up first — `/root/provision.sh` is whatever version
+built the instance — then run it as root with the map rendered as JSON.
+`jsonencode(var.apps)` in `terraform console` prints it; this is the map as
+committed (courtpot, interestled, academy-ui, simulations):
 
 ```sh
-ssh -i ~/.ssh/shared-apps.pem ubuntu@<static-ip> \
-  "sudo APPS_JSON='<the new map as JSON>' \
-        DEPLOY_PUBLIC_KEY=\"\$(cat /home/deploy/.ssh/authorized_keys)\" \
-        bash /root/provision.sh"
+cd deployment/terraform/shared-host
+IP=13.216.34.24
+scp -i ~/.ssh/shared-apps.pem provision.sh ubuntu@$IP:/tmp/provision.sh
+ssh -i ~/.ssh/shared-apps.pem ubuntu@$IP 'sudo bash -s' <<'REMOTE'
+set -euo pipefail
+install -m 700 /tmp/provision.sh /root/provision.sh
+export APPS_JSON='{"academy-ui":{"api_host":"tidbitshub.org","memory_max":"1200M","node_heap_mb":768,"on_demand_suffix":"tidbitshub.org","port":7073,"redirect_hosts":["www.tidbitshub.org"]},"courtpot":{"api_host":"api.courtpot.com","memory_max":null,"node_heap_mb":null,"on_demand_suffix":null,"port":7071,"redirect_hosts":[]},"interestled":{"api_host":"api.interestled.com","memory_max":null,"node_heap_mb":null,"on_demand_suffix":null,"port":7072,"redirect_hosts":[]},"simulations":{"api_host":"simulations.koalagains.com","memory_max":"900M","node_heap_mb":512,"on_demand_suffix":null,"port":7074,"redirect_hosts":[]}}'
+export DEPLOY_PUBLIC_KEY="$(cat /home/deploy/.ssh/authorized_keys)"
+bash /root/provision.sh </dev/null
+REMOTE
 ```
 
+It runs under `sudo bash -s` so that reading the deploy user's
+`authorized_keys` happens as root — an unprivileged `$(cat …)` there returns
+nothing and the script stops at its `DEPLOY_PUBLIC_KEY` check.
+
 `provision.sh` is idempotent and derives everything it writes from `APPS_JSON`,
-so a re-run converges. It leaves a copy at `/root/provision.sh` for exactly
-this. Commit the variables change too, so the next instance is built the same.
+so a re-run converges, and it **reloads** Caddy when Caddy is already running
+rather than restarting it, so the applications already on the host keep their
+connections and certificates. An entry that sets none of the optional fields
+below renders byte-for-byte the systemd unit and Caddy site it did before they
+existed. Commit the variables change too, so the next instance is built the
+same.
+
+### Optional per-application settings
+
+| Field | Effect |
+|---|---|
+| `redirect_hosts` | Each hostname 308s to `https://<api_host>{uri}` (its own certificate). |
+| `on_demand_suffix` | Also serve `*.<suffix>`. Each subdomain's certificate is obtained at its first TLS handshake, and only after Caddy's `ask` endpoint approves the name. |
+| `node_heap_mb` | `NODE_OPTIONS=--max-old-space-size=<n>` in the unit. |
+| `memory_max` | systemd `MemoryMax=` — the cgroup ceiling; past it the kernel kills that service alone and systemd restarts it. |
+
+The **ask endpoint** is a loopback-only site inside Caddy itself
+(`http://127.0.0.1:5555`, not in the Lightsail firewall): it answers 200 only for
+exactly one DNS label under an application's suffix (`alchemix.tidbitshub.org`,
+not `a.b.tidbitshub.org`, not anything else) and 403 otherwise, so no
+application code is involved. Caddy 2.8+ removed `on_demand_tls`'s own
+`interval`/`burst` throttle, so that label check is the gate; beyond it Caddy's
+issuer serialises and backs off failed names, and Let's Encrypt's own limit
+(50 new certificates per registered domain per week) bounds the damage of
+someone requesting random subdomains: new subdomains would wait, existing
+certificates keep serving.
+
+The host also gets a 2 GB `/swapfile` (`SWAP_SIZE` overrides it,
+`vm.swappiness=10`). With the Next.js servers' heap and cgroup caps the steady
+state is roughly: OS + Caddy ~0.5 GB, the two esbuild APIs ~0.1–0.2 GB each,
+academy-ui ~0.3–0.6 GB (cap 1.2 GB), simulations ~0.2–0.4 GB (cap 0.9 GB) —
+about 1.5 GB typical and under 3 GB with both Next apps at their ceilings.
 
 **Recreating the instance** (a resize, or a rebuild) is safe but not free: no
-data is lost, since state is in RDS and code is re-pushed by CI, but both APIs
-are down until each project's workflow runs again, and `SSH_HOST_KEY` must be
-updated in both repositories.
+data is lost, since state is in RDS and code is re-pushed by CI, but every
+application is down until each project's workflow runs again, and
+`SSH_HOST_KEY` must be updated in every repository that deploys here
+(courtpot, interestled, dodao-ui). `terraform apply -replace=aws_lightsail_instance.host`
+is how to force one deliberately now that `user_data` changes are ignored.
 
 ## Notes
 
