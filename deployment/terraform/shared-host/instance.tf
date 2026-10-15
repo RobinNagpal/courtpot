@@ -49,6 +49,16 @@ resource "aws_lightsail_instance" "host" {
   bundle_id         = var.bundle_id
   key_pair_name     = aws_lightsail_key_pair.admin.name
   user_data         = local.user_data
+
+  lifecycle {
+    # user_data only ever runs at first boot, so a change to it — a new entry in
+    # var.apps, or an edit to provision.sh — has nothing to do on a running
+    # host except force its replacement, taking every application down until
+    # each project redeploys. Ignored instead: the live host converges by
+    # re-running /root/provision.sh over SSH (deployment/README.md), and a
+    # replacement made for any other reason still boots with the current value.
+    ignore_changes = [user_data]
+  }
 }
 
 # A static IP so both projects' A records survive the instance being recreated.
